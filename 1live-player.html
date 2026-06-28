@@ -306,10 +306,19 @@ function fmt(s){
 function fmtClock(d){ return `${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}`; }
 
 // ═══════════ STREAM CLOCK ═══════════
+function getLiveEdge(){
+  // seekable.end is the most reliable live-edge reference in HLS DVR
+  if(audio.seekable && audio.seekable.length > 0)
+    return audio.seekable.end(audio.seekable.length - 1);
+  const d = audio.duration;
+  return (!isNaN(d) && d !== Infinity && d > 0) ? d : null;
+}
 function getStreamTime(){
-  const dur=audio.duration, cur=audio.currentTime;
-  if(!dvrAvailable || isNaN(dur) || dur===Infinity || dur===0) return new Date();
-  return new Date(Date.now() - (dur-cur)*1000);
+  if(!dvrAvailable) return new Date();
+  const liveEdge = getLiveEdge();
+  if(liveEdge === null) return new Date();
+  const behindSec = Math.max(0, liveEdge - audio.currentTime);
+  return new Date(Date.now() - behindSec * 1000);
 }
 function updateClock(){ streamClock.textContent = fmtClock(getStreamTime()); }
 
@@ -471,18 +480,23 @@ btnNextSong.addEventListener('click', skipToNextSong);
 
 // ═══════════ PROGRESS / SEEK ═══════════
 function updateProgressUI(){
-  const dur=audio.duration, cur=audio.currentTime;
-  const valid = dvrAvailable && !isNaN(dur) && dur!==Infinity && dur>0;
+  const liveEdge = getLiveEdge();
+  const cur = audio.currentTime;
+  const valid = dvrAvailable && liveEdge !== null && cur > 0;
   if(!valid){
     progFill.style.width='100%';
     lblPos.textContent='– LIVE –'; lblBack.textContent='';
     btnLive.style.display='none'; liveBadge.classList.remove('behind');
     return;
   }
-  progFill.style.width = Math.min(100,cur/dur*100)+'%';
-  const behind=dur-cur;
-  lblPos.textContent=fmt(cur);
-  lblBack.textContent = behind>3 ? `−${fmt(behind)} hinter live` : '';
+  const behind = Math.max(0, liveEdge - cur);
+  const pct = liveEdge > 0 ? Math.min(100, cur / liveEdge * 100) : 100;
+  progFill.style.width = pct+'%';
+  // Show stream wall-clock time on progress labels
+  const streamT = getStreamTime();
+  const streamStr = fmtClock(streamT);
+  lblPos.textContent = streamStr;
+  lblBack.textContent = behind > 3 ? `−${fmt(behind)} hinter live` : '';
   if(behind>5){ btnLive.style.display='flex'; liveBadge.classList.add('behind'); sizePlayBtn(); }
   else { btnLive.style.display='none'; liveBadge.classList.remove('behind'); }
 }
