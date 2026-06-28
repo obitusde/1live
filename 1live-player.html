@@ -372,58 +372,64 @@ npSong.addEventListener('click', () => {
 });
 
 function parseORB(html, refDate){
+  // onlineradiobox actual structure (verified June 2026):
+  // Table rows with exactly 2 <td>:
+  //   td[0] = "HH:MM" or "aktuell"
+  //   td[1] = <a href="/track/...">Artist - Title</a>  OR plain text "Artist - Title"
   const parser = new DOMParser();
   const doc = parser.parseFromString(html, 'text/html');
   const out = [];
+  const now = new Date();
 
-  // onlineradiobox structure: rows with a time element and a song link
-  // Each track row: <time class="time--schedule">HH:MM</time> ... <a href="/de/...">Artist - Title</a>
-  const rows = doc.querySelectorAll('tr, li, .track_history_item');
+  const rows = doc.querySelectorAll('tr');
+  rows.forEach(tr => {
+    const tds = tr.querySelectorAll('td');
+    if(tds.length < 2) return;
 
-  rows.forEach(row => {
-    const txt = row.textContent || '';
-    // find HH:MM
-    const tmatch = txt.match(/\b(\d{1,2}):(\d{2})\b/);
-    if(!tmatch) return;
-    const timeStr = tmatch[0];
+    const timeCell = tds[0].textContent.trim();
+    const songCell = tds[1];
 
-    // song text — prefer a link, fall back to longest text chunk
-    let songText = '';
-    const link = row.querySelector('a[href*="track"], a[href*="/de/"], a.track');
-    if(link && link.textContent.trim().length > 3) songText = link.textContent.trim();
-    if(!songText){
-      // grab text after the time
-      const after = txt.slice(txt.indexOf(timeStr) + timeStr.length).trim();
-      // remove trailing junk
-      songText = after.split('\n')[0].trim();
+    // Parse time — either "HH:MM" or "aktuell"
+    let hh, mm;
+    if(timeCell === 'aktuell' || timeCell === 'now' || timeCell === 'jetzt'){
+      hh = now.getHours(); mm = now.getMinutes();
+    } else {
+      const tm = timeCell.match(/^(\d{1,2}):(\d{2})$/);
+      if(!tm) return;
+      hh = parseInt(tm[1]); mm = parseInt(tm[2]);
+      if(hh>23||mm>59) return;
     }
-    if(!songText || songText.length < 3) return;
-    // skip header/nav noise
-    if(/playlist|cookie|anmelden|menu|suche/i.test(songText) && songText.length > 60) return;
 
+    // Song text — from link or plain text
+    const link = songCell.querySelector('a[href*="/track/"]');
+    const songText = (link ? link.textContent : songCell.textContent).trim();
+    if(!songText || songText.length < 3) return;
+
+    // Split "Artist - Title" at first " - "
     let artist='', title=songText;
     const dash = songText.indexOf(' - ');
-    if(dash > 0){ artist = songText.slice(0,dash).trim(); title = songText.slice(dash+3).trim(); }
+    if(dash > 0){
+      artist = songText.slice(0, dash).trim();
+      title  = songText.slice(dash + 3).trim();
+    }
+    if(!title) return;
 
-    const [hh,mm] = timeStr.split(':').map(Number);
-    if(hh>23||mm>59) return;
-    const t = new Date(refDate); t.setHours(hh,mm,0,0);
+    const t = new Date(refDate);
+    t.setHours(hh, mm, 0, 0);
     out.push({ time:t, artist, title });
   });
 
-  // dedupe by time+title
+  if(!out.length) return 0;
+
+  out.sort((a,b) => a.time - b.time);
+  // Dedupe by exact time+title
   const seen = new Set();
-  const clean = out.filter(e => {
-    const k = `${e.time.getHours()}:${e.time.getMinutes()}|${e.title}`;
+  playlist = out.filter(e => {
+    const k = `${e.time.getHours()}:${pad2(e.time.getMinutes())}|${e.title}`;
     if(seen.has(k)) return false;
     seen.add(k); return true;
   });
-
-  if(clean.length){
-    clean.sort((a,b)=>a.time-b.time);
-    playlist = clean;
-  }
-  return clean.length;
+  return playlist.length;
 }
 
 // ═══════════ NOW PLAYING ═══════════
