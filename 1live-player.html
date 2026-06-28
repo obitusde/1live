@@ -184,14 +184,14 @@ audio { display:none; }
       <div class="logo-dot"></div>
       <div class="logo-text">1LIVE</div>
     </div>
-    <div class="logo-sub">Für den Sektor &nbsp;·&nbsp; <span style="color:#e8001c;font-weight:900;">v6</span></div>
+    <div class="logo-sub">Für den Sektor &nbsp;·&nbsp; <span style="color:#e8001c;font-weight:900;">v7</span></div>
   </div>
   <div class="live-badge" id="liveBadge">
     <div class="live-dot"></div>LIVE
   </div>
 </div>
 
-<div class="np-strip">
+<div class="np-strip" style="display:none">
   <div class="stream-clock">
     <span>Im Stream:</span>
     <span class="stream-time-val" id="streamClock">–:–:–</span>
@@ -262,6 +262,7 @@ audio { display:none; }
 const HLS_URL = 'https://wdrhf.akamaized.net/hls/live/2027955/1live/master.m3u8';
 const MP3_URL = 'https://wdr-1live-live.icecastssl.wdr.de/wdr/1live/live/mp3/128/stream.mp3';
 
+/* ── PLAYLIST (deaktiviert) ── 
 // Multiple CORS proxies — try in order. allorigins/get (JSON) is most cross-origin reliable.
 const PROXIES = [
   { url: u => `https://api.allorigins.win/get?url=${encodeURIComponent(u)}`, json: true },
@@ -385,7 +386,7 @@ async function fetchPlaylist(date){
   const found = parseORB(html, d);
   if(found > 0){
     playlistFetchedKey = dateStr;
-    updateNowPlaying(true);
+    /* updateNowPlaying(true); */
     statusMsg.textContent = `Playlist geladen (${found} Titel)`;
   } else {
     npSong.textContent = 'Playlist leer — tippe hier';
@@ -393,11 +394,8 @@ async function fetchPlaylist(date){
   }
 }
 
-// Tap the song line to force-reload playlist
-npSong.addEventListener('click', () => {
-  playlistFetchedKey = null;
-  fetchPlaylist(getStreamTime());
-});
+/* npSong tap reload disabled */
+
 
 function parseORB(html, refDate){
   // onlineradiobox actual structure (verified June 2026):
@@ -556,7 +554,7 @@ btnLive.addEventListener('click', ()=>{
   const edge=getLiveEdge();
   if(edge!==null) audio.currentTime = edge - 1; // 1s safety margin
   setAnchorAtLiveEdge();
-  updateNowPlaying(true);
+  /* updateNowPlaying(true); */
   statusMsg.textContent='Zurück zur Live-Kante.';
 });
 volSlider.addEventListener('input', ()=>{ audio.volume=+volSlider.value; });
@@ -596,14 +594,14 @@ function initMP3(){
 }
 
 // ═══════════ EVENTS ═══════════
-audio.addEventListener('timeupdate', ()=>{ updateProgressUI(); updateClock(); updateNowPlaying(); });
+audio.addEventListener('timeupdate', ()=>{ updateProgressUI(); updateClock(); /* updateNowPlaying(); */ });
 audio.addEventListener('playing', ()=>{
   isPlaying=true; btnPlay.textContent='⏸';
   statusMsg.textContent=usingFallback?'Spielt (MP3).':'Spielt.';
   // On first play we start at the live edge — anchor the clock once.
   if(dvrAvailable && anchorCurrentTime === null){
     setAnchorAtLiveEdge();
-    updateNowPlaying(true);
+    /* updateNowPlaying(true); */
   }
 });
 audio.addEventListener('pause', ()=>{ isPlaying=false; btnPlay.textContent='▶'; });
@@ -613,19 +611,19 @@ audio.addEventListener('error', ()=>{ statusMsg.textContent='Fehler. Neu laden.'
 // ═══════════ TICKER ═══════════
 setInterval(()=>{
   if(isPlaying || audio.readyState>0){
-    updateClock(); updateNowPlaying();
-    const sd=getStreamTime();
-    const key=`${sd.getFullYear()}-${pad2(sd.getMonth()+1)}-${pad2(sd.getDate())}`;
-    if(playlistFetchedKey!==key) fetchPlaylist(sd);
+    updateClock(); /* updateNowPlaying(); */
+    /* fetchPlaylist disabled */
   }
 }, 1000);
 
 // re-fetch playlist every 60s to catch new songs at live edge
-setInterval(()=>{ if(isPlaying){ playlistFetchedKey=null; fetchPlaylist(getStreamTime()); } }, 60000);
+/* setInterval playlist refresh disabled */
+
+── PLAYLIST ENDE ── */
 
 // ═══════════ START ═══════════
 initHLS();
-fetchPlaylist(new Date());
+/* fetchPlaylist(new Date()); */
 </script>
 </body>
 </html>
