@@ -184,7 +184,7 @@ audio { display:none; }
       <div class="logo-dot"></div>
       <div class="logo-text">1LIVE</div>
     </div>
-    <div class="logo-sub">Für den Sektor &nbsp;·&nbsp; <span style="color:#e8001c;font-weight:900;">v5</span></div>
+    <div class="logo-sub">Für den Sektor &nbsp;·&nbsp; <span style="color:#e8001c;font-weight:900;">v6</span></div>
   </div>
   <div class="live-badge" id="liveBadge">
     <div class="live-dot"></div>LIVE
@@ -306,19 +306,38 @@ function fmt(s){
 function fmtClock(d){ return `${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}`; }
 
 // ═══════════ STREAM CLOCK ═══════════
+// ── Anchor: maps a fixed currentTime to a fixed wall-clock moment ──
+// We capture the live-edge ONCE, then count forward using currentTime only.
+// This avoids the jitter from seekable.end() growing every second.
+let anchorCurrentTime = null;   // audio.currentTime at anchor moment
+let anchorWallClock   = null;   // real Date when we were at the live edge
+
 function getLiveEdge(){
-  // seekable.end is the most reliable live-edge reference in HLS DVR
   if(audio.seekable && audio.seekable.length > 0)
     return audio.seekable.end(audio.seekable.length - 1);
   const d = audio.duration;
   return (!isNaN(d) && d !== Infinity && d > 0) ? d : null;
 }
+
+// Re-anchor: call when we (re)join live or seek. Establishes the mapping.
+function setAnchorAtLiveEdge(){
+  const edge = getLiveEdge();
+  if(edge === null) return;
+  // When at the live edge, stream time == real now.
+  anchorCurrentTime = edge;
+  anchorWallClock   = Date.now();
+}
+// Re-anchor explicitly to a known stream wall-clock (used after a seek where we know position)
+function setAnchor(curTime, wallMs){
+  anchorCurrentTime = curTime;
+  anchorWallClock   = wallMs;
+}
+
 function getStreamTime(){
-  if(!dvrAvailable) return new Date();
-  const liveEdge = getLiveEdge();
-  if(liveEdge === null) return new Date();
-  const behindSec = Math.max(0, liveEdge - audio.currentTime);
-  return new Date(Date.now() - behindSec * 1000);
+  if(!dvrAvailable || anchorCurrentTime === null) return new Date();
+  // stream time = anchorWall + (currentTime - anchorCurrentTime)
+  const deltaSec = audio.currentTime - anchorCurrentTime;
+  return new Date(anchorWallClock + deltaSec * 1000);
 }
 function updateClock(){ streamClock.textContent = fmtClock(getStreamTime()); }
 
@@ -480,24 +499,25 @@ btnNextSong.addEventListener('click', skipToNextSong);
 
 // ═══════════ PROGRESS / SEEK ═══════════
 function updateProgressUI(){
-  const liveEdge = getLiveEdge();
   const cur = audio.currentTime;
-  const valid = dvrAvailable && liveEdge !== null && cur > 0;
+  const valid = dvrAvailable && anchorCurrentTime !== null && cur > 0;
   if(!valid){
     progFill.style.width='100%';
     lblPos.textContent='– LIVE –'; lblBack.textContent='';
     btnLive.style.display='none'; liveBadge.classList.remove('behind');
     return;
   }
-  const behind = Math.max(0, liveEdge - cur);
-  const pct = liveEdge > 0 ? Math.min(100, cur / liveEdge * 100) : 100;
-  progFill.style.width = pct+'%';
-  // Show stream wall-clock time on progress labels
+  // "behind live" derived from the stable anchor, not the jittery edge.
+  // streamTime tells us the wall-clock we're hearing; behind = now - streamTime.
   const streamT = getStreamTime();
-  const streamStr = fmtClock(streamT);
-  lblPos.textContent = streamStr;
+  const behind = Math.max(0, (Date.now() - streamT.getTime()) / 1000);
+  // progress fill: position within the 125-min DVR window
+  const winSec = 125 * 60;
+  const pct = Math.max(0, Math.min(100, (1 - behind / winSec) * 100));
+  progFill.style.width = pct+'%';
+  lblPos.textContent = fmtClock(streamT);
   lblBack.textContent = behind > 3 ? `−${fmt(behind)} hinter live` : '';
-  if(behind>5){ btnLive.style.display='flex'; liveBadge.classList.add('behind'); sizePlayBtn(); }
+  if(behind > 5){ btnLive.style.display='flex'; liveBadge.classList.add('behind'); sizePlayBtn(); }
   else { btnLive.style.display='none'; liveBadge.classList.remove('behind'); }
 }
 progTrack.addEventListener('click', e=>{
@@ -533,8 +553,10 @@ btnPlay.addEventListener('click', ()=>{
 });
 btnLive.addEventListener('click', ()=>{
   if(!dvrAvailable) return;
-  const dur=audio.duration;
-  if(!isNaN(dur)&&dur!==Infinity) audio.currentTime=dur;
+  const edge=getLiveEdge();
+  if(edge!==null) audio.currentTime = edge - 1; // 1s safety margin
+  setAnchorAtLiveEdge();
+  updateNowPlaying(true);
   statusMsg.textContent='Zurück zur Live-Kante.';
 });
 volSlider.addEventListener('input', ()=>{ audio.volume=+volSlider.value; });
@@ -575,7 +597,15 @@ function initMP3(){
 
 // ═══════════ EVENTS ═══════════
 audio.addEventListener('timeupdate', ()=>{ updateProgressUI(); updateClock(); updateNowPlaying(); });
-audio.addEventListener('playing', ()=>{ isPlaying=true; btnPlay.textContent='⏸'; statusMsg.textContent=usingFallback?'Spielt (MP3).':'Spielt.'; });
+audio.addEventListener('playing', ()=>{
+  isPlaying=true; btnPlay.textContent='⏸';
+  statusMsg.textContent=usingFallback?'Spielt (MP3).':'Spielt.';
+  // On first play we start at the live edge — anchor the clock once.
+  if(dvrAvailable && anchorCurrentTime === null){
+    setAnchorAtLiveEdge();
+    updateNowPlaying(true);
+  }
+});
 audio.addEventListener('pause', ()=>{ isPlaying=false; btnPlay.textContent='▶'; });
 audio.addEventListener('waiting', ()=>{ statusMsg.textContent='Puffert…'; });
 audio.addEventListener('error', ()=>{ statusMsg.textContent='Fehler. Neu laden.'; statusMsg.className='status err'; });
