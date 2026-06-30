@@ -394,3 +394,4 @@
 2026-06-30 10:31:28 | hls-error: mediaError / bufferFullError
 2026-06-30 10:31:30 | hls-error: mediaError / bufferFullError
 2026-06-30 10:31:32 | hls-error: mediaError / bufferFullError
+2026-06-30 10:31:36 | hls-error: mediaError / bufferFullError
