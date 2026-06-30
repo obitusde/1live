@@ -284,6 +284,7 @@ let anchorCT = null, anchorWall = null;
 // Playlist: [{epochMin, timeLabel, artist, title}] sortiert aufsteigend
 let playlist = [];
 let playlistLoaded = false;
+let playlistLoading = false;
 let streamtitleInterval = null;
 let streamtitleLast = '';
 
@@ -446,6 +447,7 @@ function loadPlaylist() {
     return;
   }
 
+  playlistLoading = true;
   showNpText('Playlist wird geladen…', true);
   logEvent('playlist-fetch: start');
 
@@ -520,8 +522,7 @@ requestAnimationFrame(() => requestAnimationFrame(sizePlay));
 
 // ── Controls ─────────────────────────────────────────────────
 btnPlay.addEventListener('click', () => {
-  if (!audio.src && !hls) {
-    initHLS();
+  if (!playlistLoaded && !playlistLoading) {
     loadPlaylist();
     startStreamtitlePolling();
   }
