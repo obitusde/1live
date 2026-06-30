@@ -419,3 +419,4 @@
 2026-06-30 10:33:00 | seek: +60s
 2026-06-30 10:33:03 | audio: waiting (stall)
 2026-06-30 10:33:09 | hls: DVR verfügbar, 125 Min
+2026-06-30 10:33:13 | hls: DVR verfügbar, 125 Min
