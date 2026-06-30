@@ -1139,3 +1139,4 @@
 2026-06-30 11:20:02 | hls: manifest parsed
 2026-06-30 11:20:04 | audio: playing
 2026-06-30 11:20:06 | hls: DVR verfügbar, 125 Min
+2026-06-30 11:20:10 | hls: DVR verfügbar, 125 Min
