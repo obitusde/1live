@@ -1413,3 +1413,4 @@
 2026-06-30 11:38:44 | hls: DVR verfügbar, 125 Min
 2026-06-30 11:38:48 | hls: DVR verfügbar, 125 Min
 2026-06-30 11:38:52 | hls: DVR verfügbar, 125 Min
+2026-06-30 11:38:56 | hls: DVR verfügbar, 125 Min
