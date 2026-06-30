@@ -1001,3 +1001,4 @@
 2026-06-30 11:10:47 | hls-error: mediaError / bufferFullError
 2026-06-30 11:10:51 | hls: DVR verfügbar, 125 Min
 2026-06-30 11:10:55 | hls-error: mediaError / bufferFullError
+2026-06-30 11:10:59 | hls: DVR verfügbar, 125 Min
