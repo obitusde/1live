@@ -28,7 +28,7 @@ body {
 .topbar {
   flex-shrink: 0;
   display: flex; align-items: center; justify-content: space-between;
-  padding: 12px 16px;
+  padding: 10px 14px;
   border-bottom: 2px solid #222;
 }
 .logo-box {
@@ -40,6 +40,8 @@ body {
 .logo-text { font-size:22px; font-weight:900; color:#fff; letter-spacing:-0.5px; }
 .logo-sub  { font-size:11px; color:#666; letter-spacing:2px; text-transform:uppercase; padding-left:8px; }
 .version   { font-size:11px; color:#e8001c; font-weight:900; padding-left:4px; }
+
+.topbar-right { display:flex; align-items:center; gap:10px; }
 
 .live-badge {
   display: flex; align-items: center; gap: 6px;
@@ -53,17 +55,42 @@ body {
 .live-badge.behind .live-dot { background:#555; animation:none; }
 @keyframes blink { 0%,100%{opacity:1;transform:scale(1);} 50%{opacity:.3;transform:scale(1.4);} }
 
+/* Reload button */
+.btn-reload {
+  background: none; border: 1.5px solid #333; border-radius: 8px;
+  color: #666; font-size: 18px; cursor: pointer;
+  width: 34px; height: 34px;
+  display: flex; align-items: center; justify-content: center;
+  -webkit-tap-highlight-color: transparent;
+  transition: color .15s, border-color .15s;
+}
+.btn-reload:active { color: #fff; border-color: #555; }
+
+/* ── NOW PLAYING ── */
+.now-playing {
+  flex-shrink: 0;
+  padding: 8px 14px;
+  border-bottom: 2px solid #222;
+  min-height: 38px;
+  display: flex; align-items: center; gap: 8px;
+}
+.np-label {
+  font-size: 11px; font-weight: 700; color: #e8001c;
+  letter-spacing: 1px; text-transform: uppercase;
+  flex-shrink: 0;
+}
+.np-text {
+  font-size: 13px; font-weight: 600; color: #ccc;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.np-text.loading { color: #555; font-style: italic; }
+
 /* ── PROGRESS STRIP ── */
 .progress-strip {
   flex-shrink: 0;
-  padding: 10px 16px 12px;
+  padding: 8px 14px 10px;
   border-bottom: 2px solid #222;
 }
-.dvr-label {
-  font-size:13px; font-weight:700; color:#00e676;
-  text-align:center; margin-bottom:8px;
-}
-.dvr-label.waiting { color:#666; }
 .prog-labels {
   display:flex; justify-content:space-between;
   font-size:14px; font-weight:700; color:#fff;
@@ -102,9 +129,9 @@ body {
 .btn-fwd  { background:#060e25; color:#8fc0ff; border:2px solid #142050; }
 
 .btn .ico { font-size:clamp(24px, 6.5vw, 36px); line-height:1; }
-.btn .lbl { font-size:clamp(15px, 4.2vw, 20px); }
+.btn .lbl { font-size:clamp(13px, 3.8vw, 18px); }
 
-/* Play button — sized by JS to be a perfect circle */
+/* Play button */
 .btn-play {
   border:none; cursor:pointer; border-radius:50%;
   background:#e8001c; color:#fff;
@@ -134,11 +161,8 @@ body {
 .bottom {
   flex-shrink:0;
   border-top: 2px solid #222;
-  padding: 10px 16px 12px;
+  padding: 8px 14px 10px;
 }
-.vol-row { display:flex; align-items:center; gap:12px; margin-bottom:6px; }
-.vol-ico { font-size:20px; color:#666; }
-input[type=range] { flex:1; accent-color:#e8001c; cursor:pointer; }
 .status { font-size:13px; color:#888; text-align:center; min-height:18px; font-weight:600; }
 .status.err { color:#ff6b6b; }
 
@@ -155,16 +179,24 @@ audio { display:none; }
       <div class="logo-text">1LIVE</div>
     </div>
     <div class="logo-sub">Für den Sektor</div>
-    <div class="version">v8</div>
+    <div class="version">v9</div>
   </div>
-  <div class="live-badge" id="liveBadge">
-    <div class="live-dot"></div>LIVE
+  <div class="topbar-right">
+    <div class="live-badge" id="liveBadge">
+      <div class="live-dot"></div>LIVE
+    </div>
+    <button class="btn-reload" id="btnReload" title="Seite neu laden">↺</button>
   </div>
+</div>
+
+<!-- NOW PLAYING -->
+<div class="now-playing">
+  <span class="np-label">♫</span>
+  <span class="np-text loading" id="npText">—</span>
 </div>
 
 <!-- PROGRESS -->
 <div class="progress-strip">
-  <div class="dvr-label waiting" id="dvrLabel">Buffer wird geprüft…</div>
   <div class="prog-labels">
     <span id="lblBehind"></span>
     <span id="lblClock">– LIVE –</span>
@@ -219,128 +251,250 @@ audio { display:none; }
 
 <!-- BOTTOM -->
 <div class="bottom">
-  <div class="vol-row">
-    <span class="vol-ico">🔈</span>
-    <input type="range" id="volSlider" min="0" max="1" step="0.02" value="0.8">
-    <span class="vol-ico">🔊</span>
-  </div>
   <div class="status" id="statusMsg">Tippe ▶ zum Starten</div>
 </div>
 
 <audio id="audio"></audio>
 
 <script>
-const HLS_URL = 'https://wdrhf.akamaized.net/hls/live/2027955/1live/master.m3u8';
-const MP3_URL = 'https://wdr-1live-live.icecastssl.wdr.de/wdr/1live/live/mp3/128/stream.mp3';
+// ── Konfiguration ────────────────────────────────────────────
+const HLS_URL      = 'https://wdrhf.akamaized.net/hls/live/2027955/1live/master.m3u8';
+const MP3_URL      = 'https://wdr-1live-live.icecastssl.wdr.de/wdr/1live/live/mp3/128/stream.mp3';
+const STREAMTITLE  = 'https://www.wdr.de/radio/radiotext/streamtitle_1live.txt';
+// Nach dem Deployen der Web App hier eintragen:
+const WEBAPP_URL   = 'https://script.google.com/macros/s/AKfycbwoAI846IaHDiSGb7N6IZ_N08ZPlWUaGw90Aj0PTLcUpHWiTSleZ7UfTXzVx-4vJeQ6hg/exec';
 
-const audio    = document.getElementById('audio');
-const btnPlay  = document.getElementById('btnPlay');
-const btnLive  = document.getElementById('btnLive');
-const volSlider= document.getElementById('volSlider');
-const statusMsg= document.getElementById('statusMsg');
-const liveBadge= document.getElementById('liveBadge');
-const dvrLabel = document.getElementById('dvrLabel');
-const progFill = document.getElementById('progFill');
-const lblBehind= document.getElementById('lblBehind');
-const lblClock = document.getElementById('lblClock');
-const progTrack= document.getElementById('progTrack');
+// ── DOM ──────────────────────────────────────────────────────
+const audio     = document.getElementById('audio');
+const btnPlay   = document.getElementById('btnPlay');
+const btnLive   = document.getElementById('btnLive');
+const btnReload = document.getElementById('btnReload');
+const statusMsg = document.getElementById('statusMsg');
+const liveBadge = document.getElementById('liveBadge');
+const progFill  = document.getElementById('progFill');
+const lblBehind = document.getElementById('lblBehind');
+const lblClock  = document.getElementById('lblClock');
+const progTrack = document.getElementById('progTrack');
+const npText    = document.getElementById('npText');
 
-let hls=null, isPlaying=false, dvrAvailable=false, usingFallback=false;
+// ── State ────────────────────────────────────────────────────
+let hls = null, isPlaying = false, dvrAvailable = false, usingFallback = false;
+let anchorCT = null, anchorWall = null;
 
-// ── Stable clock anchor ──
-// Set once at play start (when we're at the live edge).
-// Thereafter: streamTime = anchorWall + (currentTime - anchorCT)
-let anchorCT   = null;   // audio.currentTime at anchor
-let anchorWall = null;   // Date.now() ms at anchor
+// Playlist: [{epochMin, timeLabel, artist, title}] sortiert aufsteigend
+let playlist = [];
+let playlistLoaded = false;
+let streamtitleInterval = null;
+let streamtitleLast = '';
 
-function getLiveEdge(){
-  if(audio.seekable && audio.seekable.length > 0)
+// ── Event Log ────────────────────────────────────────────────
+const eventLog = [];
+const MAX_LOG  = 200;
+
+function logEvent(msg) {
+  const ts  = new Date().toISOString().replace('T', ' ').substring(0, 19);
+  const line = ts + ' | ' + msg;
+  eventLog.push(line);
+  if (eventLog.length > MAX_LOG) eventLog.shift();
+  // An Web App senden (fire-and-forget)
+  if (WEBAPP_URL && WEBAPP_URL !== 'DEINE_WEBAPP_URL_HIER') {
+    const url = WEBAPP_URL + '?action=log&entry=' + encodeURIComponent(msg);
+    fetch(url).catch(() => {});
+  }
+}
+
+// ── Uhr / DVR ────────────────────────────────────────────────
+function getLiveEdge() {
+  if (audio.seekable && audio.seekable.length > 0)
     return audio.seekable.end(audio.seekable.length - 1);
   const d = audio.duration;
   return (!isNaN(d) && d !== Infinity && d > 0) ? d : null;
 }
 
-function setAnchor(){
+function setAnchor() {
   const edge = getLiveEdge();
-  if(edge === null) return;
+  if (edge === null) return;
   anchorCT   = edge;
   anchorWall = Date.now();
 }
 
-function getStreamTime(){
-  if(!dvrAvailable || anchorCT === null) return new Date();
+function getStreamTime() {
+  if (!dvrAvailable || anchorCT === null) return new Date();
   return new Date(anchorWall + (audio.currentTime - anchorCT) * 1000);
 }
 
-function pad2(n){ return String(n).padStart(2,'0'); }
+function pad2(n) { return String(n).padStart(2, '0'); }
 
-function fmtClock(d){
+function fmtClock(d) {
   return `${pad2(d.getHours())}:${pad2(d.getMinutes())}:${pad2(d.getSeconds())}`;
 }
 
-function fmtBehind(sec){
+function fmtBehind(sec) {
   sec = Math.round(sec);
-  if(sec >= 3600){ const h=Math.floor(sec/3600), m=Math.floor((sec%3600)/60); return `−${h}h ${pad2(m)}m hinter live`; }
-  if(sec >= 60)  { const m=Math.floor(sec/60), s=sec%60; return `−${m}m ${pad2(s)}s hinter live`; }
+  if (sec >= 3600) { const h = Math.floor(sec/3600), m = Math.floor((sec%3600)/60); return `−${h}h ${pad2(m)}m hinter live`; }
+  if (sec >= 60)   { const m = Math.floor(sec/60), s = sec%60; return `−${m}m ${pad2(s)}s hinter live`; }
   return `−${sec}s hinter live`;
 }
 
-function fmtDelta(sec){
+function fmtDelta(sec) {
   sec = Math.abs(Math.round(sec));
-  if(sec >= 3600){ return `${Math.floor(sec/3600)}h ${pad2(Math.floor((sec%3600)/60))}m`; }
-  if(sec >= 60)  { return `${Math.floor(sec/60)}m ${pad2(sec%60)}s`; }
+  if (sec >= 3600) return `${Math.floor(sec/3600)}h ${pad2(Math.floor((sec%3600)/60))}m`;
+  if (sec >= 60)   return `${Math.floor(sec/60)}m ${pad2(sec%60)}s`;
   return `${sec}s`;
 }
 
-// ── Progress UI ──
-function updateUI(){
-  const streamT  = getStreamTime();
-  const behindMs = Date.now() - streamT.getTime();
-  const behindSec= Math.max(0, behindMs / 1000);
+// ── Progress UI ──────────────────────────────────────────────
+function updateUI() {
+  const streamT   = getStreamTime();
+  const behindMs  = Date.now() - streamT.getTime();
+  const behindSec = Math.max(0, behindMs / 1000);
 
-  lblClock.textContent = dvrAvailable && anchorCT !== null ? fmtClock(streamT) : '– LIVE –';
+  lblClock.textContent = (dvrAvailable && anchorCT !== null) ? fmtClock(streamT) : '– LIVE –';
 
-  if(dvrAvailable && behindSec > 3){
+  if (dvrAvailable && behindSec > 3) {
     const winSec = 125 * 60;
-    progFill.style.width = Math.max(0, Math.min(100, (1 - behindSec/winSec)*100)) + '%';
-    lblBehind.textContent = fmtBehind(behindSec);
-    btnLive.style.display = 'flex';
+    progFill.style.width      = Math.max(0, Math.min(100, (1 - behindSec/winSec)*100)) + '%';
+    lblBehind.textContent     = fmtBehind(behindSec);
+    btnLive.style.display     = 'flex';
     liveBadge.classList.add('behind');
   } else {
-    progFill.style.width = '100%';
-    lblBehind.textContent = '';
-    btnLive.style.display = 'none';
+    progFill.style.width      = '100%';
+    lblBehind.textContent     = '';
+    btnLive.style.display     = 'none';
     liveBadge.classList.remove('behind');
+  }
+
+  updateNowPlaying(streamT, behindSec);
+}
+
+// ── Now Playing ──────────────────────────────────────────────
+function updateNowPlaying(streamTime, behindSec) {
+  if (!isPlaying) return;
+
+  // Live: streamtitle_1live.txt Wert anzeigen (wird separat gepollt)
+  if (behindSec <= 10) {
+    if (streamtitleLast) {
+      showNpText(streamtitleLast, false);
+    }
+    return;
+  }
+
+  // Zeitversatz: aus lokaler Playlist-Map
+  if (!playlistLoaded) {
+    showNpText('Playlist wird geladen…', true);
+    return;
+  }
+  if (playlist.length === 0) {
+    showNpText('Keine Titeldaten', true);
+    return;
+  }
+
+  // Stream-Uhrzeit in epochMin umrechnen
+  const epochMin = Math.floor(streamTime.getTime() / 60000);
+
+  // Letzten Titel finden dessen epochMin ≤ aktuelle Stream-epochMin
+  let found = null;
+  for (let i = playlist.length - 1; i >= 0; i--) {
+    if (playlist[i].epochMin <= epochMin) {
+      found = playlist[i];
+      break;
+    }
+  }
+
+  if (found) {
+    const label = found.artist ? `${found.artist} — ${found.title}` : found.title;
+    showNpText(label, false);
+  } else {
+    showNpText('—', true);
   }
 }
 
-// ── Progress bar click ──
+function showNpText(text, dim) {
+  npText.textContent = text;
+  npText.className   = 'np-text' + (dim ? ' loading' : '');
+}
+
+// ── Streamtitle polling (nur wenn live) ──────────────────────
+function startStreamtitlePolling() {
+  stopStreamtitlePolling();
+  fetchStreamtitle();
+  streamtitleInterval = setInterval(fetchStreamtitle, 30000);
+}
+
+function stopStreamtitlePolling() {
+  if (streamtitleInterval) { clearInterval(streamtitleInterval); streamtitleInterval = null; }
+}
+
+function fetchStreamtitle() {
+  const url = STREAMTITLE + '?t=' + Math.floor(Date.now() / 1000);
+  fetch(url)
+    .then(r => r.text())
+    .then(text => {
+      const t = text.trim();
+      if (t && t !== streamtitleLast) {
+        streamtitleLast = t;
+        logEvent('now-playing: ' + t);
+      }
+    })
+    .catch(() => {});
+}
+
+// ── Playlist laden ───────────────────────────────────────────
+function loadPlaylist() {
+  if (!WEBAPP_URL || WEBAPP_URL === 'DEINE_WEBAPP_URL_HIER') {
+    playlistLoaded = true; // kein Proxy konfiguriert
+    return;
+  }
+
+  showNpText('Playlist wird geladen…', true);
+  logEvent('playlist-fetch: start');
+
+  fetch(WEBAPP_URL + '?action=playlist')
+    .then(r => r.json())
+    .then(data => {
+      if (data.ok && Array.isArray(data.items)) {
+        playlist      = data.items;
+        playlistLoaded = true;
+        logEvent('playlist-fetch: ok, ' + data.items.length + ' Einträge');
+        showNpText('—', true);
+      } else {
+        playlistLoaded = true;
+        logEvent('playlist-fetch: error ' + (data.error || 'unknown'));
+      }
+    })
+    .catch(err => {
+      playlistLoaded = true;
+      logEvent('playlist-fetch: exception ' + err.message);
+    });
+}
+
+// ── Progress bar click ───────────────────────────────────────
 progTrack.addEventListener('click', e => {
-  if(!dvrAvailable || anchorCT === null) return;
+  if (!dvrAvailable || anchorCT === null) return;
   const edge = getLiveEdge();
-  if(!edge) return;
+  if (!edge) return;
   const r   = progTrack.getBoundingClientRect();
   const pct = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width));
   const winSec = 125 * 60;
-  const target = edge - winSec * (1 - pct);
-  audio.currentTime = Math.max(0, Math.min(edge, target));
+  audio.currentTime = Math.max(0, Math.min(edge, edge - winSec * (1 - pct)));
 });
 
-// ── Seek ──
-function seek(delta){
-  if(!dvrAvailable){ statusMsg.textContent = 'Kein DVR-Puffer.'; return; }
+// ── Seek ─────────────────────────────────────────────────────
+function seek(delta) {
+  if (!dvrAvailable) { statusMsg.textContent = 'Kein DVR-Puffer.'; return; }
   const edge = getLiveEdge();
-  if(!edge){ statusMsg.textContent = delta > 0 ? 'Schon an Live-Kante.' : 'Warte nach Start.'; return; }
+  if (!edge) return;
   audio.currentTime = Math.max(0, Math.min(edge, audio.currentTime + delta));
   statusMsg.textContent = delta < 0 ? `− ${fmtDelta(delta)} zurück` : `+ ${fmtDelta(delta)} vor`;
+  logEvent('seek: ' + (delta > 0 ? '+' : '') + delta + 's');
 }
 
 document.querySelectorAll('[data-sec]').forEach(b =>
   b.addEventListener('click', () => seek(+b.dataset.sec))
 );
 
-// ── Play circle sizing ──
-function sizePlay(){
+// ── Play circle sizing ───────────────────────────────────────
+function sizePlay() {
   const mid  = document.getElementById('colMid');
   const live = document.getElementById('btnLive');
   const play = document.getElementById('btnPlay');
@@ -354,89 +508,120 @@ function sizePlay(){
 window.addEventListener('resize', sizePlay);
 requestAnimationFrame(() => requestAnimationFrame(sizePlay));
 
-// ── Controls ──
+// ── Controls ─────────────────────────────────────────────────
 btnPlay.addEventListener('click', () => {
-  if(!audio.src && !hls) initHLS();
-  if(isPlaying){ audio.pause(); }
+  if (!audio.src && !hls) {
+    initHLS();
+    loadPlaylist();
+    startStreamtitlePolling();
+  }
+  if (isPlaying) { audio.pause(); }
   else { audio.play().catch(() => { statusMsg.textContent = 'Nochmal tippen ▶'; }); }
 });
 
 btnLive.addEventListener('click', () => {
-  if(!dvrAvailable) return;
+  if (!dvrAvailable) return;
   const edge = getLiveEdge();
-  if(edge) audio.currentTime = edge - 1;
+  if (edge) audio.currentTime = edge - 1;
   setAnchor();
   statusMsg.textContent = 'Zurück zur Live-Kante.';
+  logEvent('jump-to-live');
 });
 
-volSlider.addEventListener('input', () => { audio.volume = +volSlider.value; });
-audio.volume = 0.8;
+btnReload.addEventListener('click', () => {
+  logEvent('manual-reload');
+  setTimeout(() => location.reload(), 100);
+});
 
-function setSeekEnabled(on){
-  document.querySelectorAll('[data-sec]').forEach(b => {
-    b.disabled = !on;
-    b.style.opacity = on ? '1' : '0.3';
-  });
-}
-
-// ── HLS init ──
-function initHLS(){
-  if(typeof Hls !== 'undefined' && Hls.isSupported()){
-    hls = new Hls({ enableWorker:true, lowLatencyMode:false,
-      backBufferLength:90, maxBufferLength:60, maxMaxBufferLength:7200 });
+// ── HLS init ─────────────────────────────────────────────────
+function initHLS() {
+  if (typeof Hls !== 'undefined' && Hls.isSupported()) {
+    hls = new Hls({
+      enableWorker: true, lowLatencyMode: false,
+      backBufferLength: 90, maxBufferLength: 60, maxMaxBufferLength: 7200
+    });
     hls.loadSource(HLS_URL);
     hls.attachMedia(audio);
+
     hls.on(Hls.Events.MANIFEST_PARSED, () => {
       statusMsg.textContent = 'Stream bereit — tippe ▶';
+      logEvent('hls: manifest parsed');
     });
+
     hls.on(Hls.Events.LEVEL_LOADED, (_, d) => {
-      if(d.details && d.details.totalduration > 10){
-        dvrAvailable = d.details.totalduration > 30;
-        if(dvrAvailable){
-          const mins = Math.round(d.details.totalduration / 60);
-          dvrLabel.textContent = `DVR aktiv — bis zu ${mins} Min zurück`;
-          dvrLabel.className  = 'dvr-label';
-        } else {
-          dvrLabel.textContent = 'Kein DVR-Puffer';
-          dvrLabel.className  = 'dvr-label waiting';
-        }
+      if (d.details && d.details.totalduration > 30) {
+        dvrAvailable = true;
+        logEvent('hls: DVR verfügbar, ' + Math.round(d.details.totalduration/60) + ' Min');
       }
     });
+
+    // Aussetzer-Events loggen
     hls.on(Hls.Events.ERROR, (_, d) => {
-      if(d.fatal){ statusMsg.textContent = 'HLS-Fehler → MP3…'; hls.destroy(); hls=null; initMP3(); }
+      logEvent('hls-error: ' + d.type + ' / ' + d.details + (d.fatal ? ' [FATAL]' : ''));
+      if (d.fatal) {
+        statusMsg.textContent = 'HLS-Fehler → MP3…';
+        hls.destroy(); hls = null;
+        initMP3();
+      }
     });
-  } else if(audio.canPlayType('application/vnd.apple.mpegurl')){
+
+  } else if (audio.canPlayType('application/vnd.apple.mpegurl')) {
     audio.src = HLS_URL;
     audio.addEventListener('durationchange', () => {
       const d = audio.duration;
-      if(d && d !== Infinity){ dvrAvailable = d > 30;
-        if(dvrAvailable){ dvrLabel.textContent=`DVR aktiv — bis zu ${Math.round(d/60)} Min zurück`; dvrLabel.className='dvr-label'; }
+      if (d && d !== Infinity && d > 30) {
+        dvrAvailable = true;
+        logEvent('native-hls: DVR verfügbar');
       }
     });
-  } else { initMP3(); }
+  } else {
+    initMP3();
+  }
 }
 
-function initMP3(){
+function initMP3() {
   usingFallback = true;
-  audio.src = MP3_URL;
-  dvrAvailable = false;
-  dvrLabel.textContent = 'MP3-Stream — kein Zurückspulen';
-  dvrLabel.className   = 'dvr-label waiting';
+  audio.src     = MP3_URL;
+  dvrAvailable  = false;
   statusMsg.textContent = 'Tippe ▶ (MP3, kein Timeshift)';
-  setSeekEnabled(false);
+  document.querySelectorAll('[data-sec]').forEach(b => {
+    b.disabled = true; b.style.opacity = '0.3';
+  });
+  logEvent('fallback: MP3-Stream');
 }
 
-// ── Audio events ──
+// ── Audio events ─────────────────────────────────────────────
 audio.addEventListener('playing', () => {
   isPlaying = true;
-  btnPlay.textContent = '⏸';
+  btnPlay.textContent   = '⏸';
   statusMsg.textContent = usingFallback ? 'Spielt (MP3).' : 'Spielt.';
-  if(dvrAvailable && anchorCT === null) setAnchor();
+  if (dvrAvailable && anchorCT === null) setAnchor();
   sizePlay();
+  logEvent('audio: playing');
 });
-audio.addEventListener('pause',   () => { isPlaying = false; btnPlay.textContent = '▶'; });
-audio.addEventListener('waiting', () => { statusMsg.textContent = 'Puffert…'; });
-audio.addEventListener('error',   () => { statusMsg.textContent = 'Fehler. Neu laden.'; statusMsg.className='status err'; });
+
+audio.addEventListener('pause', () => {
+  isPlaying = false;
+  btnPlay.textContent = '▶';
+  logEvent('audio: pause');
+});
+
+audio.addEventListener('waiting', () => {
+  statusMsg.textContent = 'Puffert…';
+  logEvent('audio: waiting (stall)');
+});
+
+audio.addEventListener('stalled', () => {
+  logEvent('audio: stalled');
+});
+
+audio.addEventListener('error', () => {
+  const code = audio.error ? audio.error.code : '?';
+  statusMsg.textContent  = 'Fehler. Neu laden.';
+  statusMsg.className    = 'status err';
+  logEvent('audio: error code=' + code);
+});
+
 audio.addEventListener('timeupdate', updateUI);
 setInterval(updateUI, 1000);
 
