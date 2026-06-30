@@ -40,6 +40,13 @@ body {
   -webkit-tap-highlight-color:transparent; transition:color .15s, border-color .15s;
 }
 .btn-reload:active { color:#fff; border-color:#555; }
+.btn-debug {
+  background:none; border:1.5px solid #333; border-radius:8px; color:#666;
+  font-size:13px; font-weight:700; cursor:pointer; width:34px; height:34px;
+  display:flex; align-items:center; justify-content:center;
+  -webkit-tap-highlight-color:transparent; transition:color .15s, border-color .15s;
+}
+.btn-debug:active { color:#ff0; border-color:#ff0; }
 .now-playing {
   flex-shrink:0; padding:8px 14px; border-bottom:2px solid #222;
   min-height:38px; display:flex; align-items:center; gap:8px;
@@ -87,6 +94,39 @@ body {
 .status { font-size:13px; color:#888; text-align:center; min-height:18px; font-weight:600; }
 .status.err { color:#ff6b6b; }
 audio { display:none; }
+
+/* Debug Overlay */
+.debug-overlay {
+  display:none; position:fixed; inset:0; background:rgba(0,0,0,0.95);
+  z-index:999; flex-direction:column; padding:16px;
+}
+.debug-overlay.open { display:flex; }
+.debug-header {
+  display:flex; justify-content:space-between; align-items:center;
+  margin-bottom:10px; flex-shrink:0;
+}
+.debug-title { font-size:14px; font-weight:900; color:#ff0; letter-spacing:2px; }
+.debug-close {
+  background:none; border:1.5px solid #555; border-radius:8px; color:#aaa;
+  font-size:18px; cursor:pointer; width:36px; height:36px;
+  display:flex; align-items:center; justify-content:center;
+}
+.debug-log {
+  flex:1; overflow-y:auto; background:#111; border-radius:8px;
+  padding:10px; font-size:11px; font-family:monospace; color:#aaa;
+  white-space:pre-wrap; word-break:break-all; margin-bottom:10px;
+}
+.debug-log .line-err  { color:#ff6b6b; }
+.debug-log .line-ok   { color:#00e676; }
+.debug-log .line-info { color:#8fc0ff; }
+.debug-copy {
+  flex-shrink:0; border:none; border-radius:12px; background:#ff0;
+  color:#000; font-family:inherit; font-size:15px; font-weight:900;
+  padding:14px; cursor:pointer; -webkit-tap-highlight-color:transparent;
+  touch-action:manipulation;
+}
+.debug-copy:active { filter:brightness(0.8); }
+.debug-copied { background:#00e676 !important; }
 </style>
 </head>
 <body>
@@ -95,10 +135,11 @@ audio { display:none; }
   <div style="display:flex;align-items:center">
     <div class="logo-box"><div class="logo-dot"></div><div class="logo-text">1LIVE</div></div>
     <div class="logo-sub">Für den Sektor</div>
-    <div class="version">v9.1</div>
+    <div class="version">v9.2</div>
   </div>
   <div class="topbar-right">
     <div class="live-badge" id="liveBadge"><div class="live-dot"></div>LIVE</div>
+    <button class="btn-debug" id="btnDebug" title="Debug-Log">🐛</button>
     <button class="btn-reload" id="btnReload" title="Seite neu laden">↺</button>
   </div>
 </div>
@@ -139,6 +180,16 @@ audio { display:none; }
   <div class="status" id="statusMsg">Tippe ▶ zum Starten</div>
 </div>
 
+<!-- Debug Overlay -->
+<div class="debug-overlay" id="debugOverlay">
+  <div class="debug-header">
+    <span class="debug-title">🐛 DEBUG LOG v9.2</span>
+    <button class="debug-close" id="debugClose">✕</button>
+  </div>
+  <div class="debug-log" id="debugLog"></div>
+  <button class="debug-copy" id="debugCopy">📋 Log kopieren</button>
+</div>
+
 <audio id="audio"></audio>
 
 <script>
@@ -151,6 +202,7 @@ const audio     = document.getElementById('audio');
 const btnPlay   = document.getElementById('btnPlay');
 const btnLive   = document.getElementById('btnLive');
 const btnReload = document.getElementById('btnReload');
+const btnDebug  = document.getElementById('btnDebug');
 const statusMsg = document.getElementById('statusMsg');
 const liveBadge = document.getElementById('liveBadge');
 const progFill  = document.getElementById('progFill');
@@ -158,6 +210,10 @@ const lblBehind = document.getElementById('lblBehind');
 const lblClock  = document.getElementById('lblClock');
 const progTrack = document.getElementById('progTrack');
 const npText    = document.getElementById('npText');
+const debugOverlay = document.getElementById('debugOverlay');
+const debugLog     = document.getElementById('debugLog');
+const debugClose   = document.getElementById('debugClose');
+const debugCopy    = document.getElementById('debugCopy');
 
 let hls = null, isPlaying = false, dvrAvailable = false, usingFallback = false;
 let anchorCT = null, anchorWall = null;
@@ -165,13 +221,95 @@ let playlist = [], playlistLoaded = false, playlistLoading = false;
 let streamtitleInterval = null, streamtitleLast = '';
 const eventLog = [];
 
-function logEvent(msg) {
+function logEvent(msg, level) {
   const ts = new Date().toISOString().replace('T',' ').substring(0,19);
-  eventLog.push(ts + ' | ' + msg);
-  if (eventLog.length > 200) eventLog.shift();
-  // Remote-Logging deaktiviert
+  const line = ts + ' | ' + msg;
+  eventLog.push({ line, level: level || 'info' });
+  if (eventLog.length > 300) eventLog.shift();
 }
 
+// ── Debug Overlay ─────────────────────────────────────────────
+btnDebug.addEventListener('click', () => {
+  // State-Snapshot oben anheften
+  const snap = [
+    '=== SNAPSHOT @ ' + new Date().toISOString().substring(0,19) + ' ===',
+    'isPlaying:    ' + isPlaying,
+    'dvrAvailable: ' + dvrAvailable,
+    'usingFallback:' + usingFallback,
+    'anchorCT:     ' + anchorCT,
+    'anchorWall:   ' + (anchorWall ? new Date(anchorWall).toISOString() : 'null'),
+    'currentTime:  ' + audio.currentTime.toFixed(1),
+    'duration:     ' + audio.duration,
+    'seekable.end: ' + (audio.seekable.length ? audio.seekable.end(audio.seekable.length-1).toFixed(1) : 'n/a'),
+    'playlistItems:' + playlist.length,
+    'playlistLoaded:' + playlistLoaded,
+    'streamTitle:  ' + streamtitleLast,
+    '=== EVENT LOG (' + eventLog.length + ' entries) ===',
+    ''
+  ].join('\n');
+
+  debugLog.innerHTML = '';
+
+  // Snapshot einfügen
+  const snapEl = document.createElement('div');
+  snapEl.style.color = '#ff0';
+  snapEl.style.marginBottom = '8px';
+  snapEl.textContent = snap;
+  debugLog.appendChild(snapEl);
+
+  // Log-Einträge einfügen
+  eventLog.forEach(({ line, level }) => {
+    const el = document.createElement('div');
+    el.className = level === 'err' ? 'line-err' : level === 'ok' ? 'line-ok' : 'line-info';
+    el.textContent = line;
+    debugLog.appendChild(el);
+  });
+
+  debugOverlay.classList.add('open');
+  debugLog.scrollTop = debugLog.scrollHeight;
+});
+
+debugClose.addEventListener('click', () => debugOverlay.classList.remove('open'));
+
+debugCopy.addEventListener('click', () => {
+  const snap = [
+    '=== SNAPSHOT @ ' + new Date().toISOString().substring(0,19) + ' ===',
+    'isPlaying:    ' + isPlaying,
+    'dvrAvailable: ' + dvrAvailable,
+    'usingFallback:' + usingFallback,
+    'anchorCT:     ' + anchorCT,
+    'anchorWall:   ' + (anchorWall ? new Date(anchorWall).toISOString() : 'null'),
+    'currentTime:  ' + audio.currentTime.toFixed(1),
+    'duration:     ' + audio.duration,
+    'seekable.end: ' + (audio.seekable.length ? audio.seekable.end(audio.seekable.length-1).toFixed(1) : 'n/a'),
+    'playlistItems:' + playlist.length,
+    'playlistLoaded:' + playlistLoaded,
+    'streamTitle:  ' + streamtitleLast,
+    '=== EVENT LOG (' + eventLog.length + ' entries) ===',
+    ...eventLog.map(e => e.line)
+  ].join('\n');
+
+  navigator.clipboard.writeText(snap).then(() => {
+    debugCopy.textContent = '✅ Kopiert!';
+    debugCopy.classList.add('debug-copied');
+    setTimeout(() => {
+      debugCopy.textContent = '📋 Log kopieren';
+      debugCopy.classList.remove('debug-copied');
+    }, 2000);
+  }).catch(() => {
+    // Fallback: Text markieren
+    const ta = document.createElement('textarea');
+    ta.value = snap;
+    ta.style.position = 'fixed'; ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select(); document.execCommand('copy');
+    document.body.removeChild(ta);
+    debugCopy.textContent = '✅ Kopiert!';
+    setTimeout(() => { debugCopy.textContent = '📋 Log kopieren'; }, 2000);
+  });
+});
+
+// ── Player Logic ──────────────────────────────────────────────
 function getLiveEdge() {
   if (audio.seekable && audio.seekable.length > 0)
     return audio.seekable.end(audio.seekable.length - 1);
@@ -183,6 +321,7 @@ function setAnchor() {
   const edge = getLiveEdge();
   if (edge === null) return;
   anchorCT = edge; anchorWall = Date.now();
+  logEvent('anchor set: ct=' + edge.toFixed(1), 'ok');
 }
 
 function getStreamTime() {
@@ -257,8 +396,11 @@ function fetchStreamtitle() {
     .then(r => r.text())
     .then(t => {
       t = t.trim();
-      if (t && t !== streamtitleLast) { streamtitleLast = t; logEvent('now-playing: '+t); }
-    }).catch(() => {});
+      if (t && t !== streamtitleLast) {
+        streamtitleLast = t;
+        logEvent('now-playing: ' + t, 'ok');
+      }
+    }).catch(err => logEvent('streamtitle-error: ' + err.message, 'err'));
 }
 
 function loadPlaylist() {
@@ -272,21 +414,24 @@ function loadPlaylist() {
       const data = JSON.parse(xhr.responseText);
       if (data.ok && Array.isArray(data.items)) {
         playlist = data.items; playlistLoaded = true;
-        logEvent('playlist-fetch: ok, ' + data.items.length + ' Eintraege');
+        logEvent('playlist-fetch: ok, ' + data.items.length + ' Eintraege, range=' +
+          (data.items.length ? data.items[0].time + '–' + data.items[data.items.length-1].time : 'leer'), 'ok');
         showNp('—', true);
       } else {
         playlistLoaded = true;
-        logEvent('playlist-fetch: error ' + (data.error||'unknown'));
+        logEvent('playlist-fetch: error ' + (data.error||'unknown'), 'err');
         showNp('—', true);
       }
     } catch(e) {
       playlistLoaded = true;
-      logEvent('playlist-fetch: parse error, status=' + xhr.status);
+      logEvent('playlist-fetch: parse error, status=' + xhr.status + ', body=' + xhr.responseText.substring(0,100), 'err');
       showNp('—', true);
     }
   };
   xhr.onerror = function() {
-    playlistLoaded = true; logEvent('playlist-fetch: network error'); showNp('—', true);
+    playlistLoaded = true;
+    logEvent('playlist-fetch: network error', 'err');
+    showNp('—', true);
   };
   xhr.send();
 }
@@ -302,9 +447,10 @@ progTrack.addEventListener('click', e => {
 function seek(delta) {
   if (!dvrAvailable) { statusMsg.textContent = 'Kein DVR-Puffer.'; return; }
   const edge = getLiveEdge(); if (!edge) return;
+  const before = audio.currentTime;
   audio.currentTime = Math.max(0, Math.min(edge, audio.currentTime + delta));
+  logEvent('seek: ' + (delta>0?'+':'') + delta + 's, ct=' + before.toFixed(0) + '→' + audio.currentTime.toFixed(0));
   statusMsg.textContent = delta < 0 ? '− '+fmtDelta(delta)+' zurück' : '+ '+fmtDelta(delta)+' vor';
-  logEvent('seek: '+(delta>0?'+':'')+delta+'s');
 }
 document.querySelectorAll('[data-sec]').forEach(b => b.addEventListener('click', () => seek(+b.dataset.sec)));
 
@@ -324,7 +470,10 @@ btnPlay.addEventListener('click', () => {
     startStreamtitlePolling();
   }
   if (isPlaying) audio.pause();
-  else audio.play().catch(() => { statusMsg.textContent = 'Nochmal tippen ▶'; });
+  else audio.play().catch(err => {
+    statusMsg.textContent = 'Nochmal tippen ▶';
+    logEvent('play-error: ' + err.message, 'err');
+  });
 });
 
 btnLive.addEventListener('click', () => {
@@ -333,32 +482,47 @@ btnLive.addEventListener('click', () => {
   if (edge) audio.currentTime = edge - 1;
   setAnchor();
   statusMsg.textContent = 'Zurück zur Live-Kante.';
-  logEvent('jump-to-live');
+  logEvent('jump-to-live', 'ok');
 });
 
-btnReload.addEventListener('click', () => { logEvent('manual-reload'); setTimeout(() => location.reload(), 100); });
+btnReload.addEventListener('click', () => {
+  logEvent('manual-reload');
+  setTimeout(() => location.reload(), 100);
+});
 
 function initHLS() {
   if (typeof Hls !== 'undefined' && Hls.isSupported()) {
     hls = new Hls({ enableWorker:true, lowLatencyMode:false, backBufferLength:90, maxBufferLength:60, maxMaxBufferLength:7200 });
     hls.loadSource(HLS_URL);
     hls.attachMedia(audio);
-    hls.on(Hls.Events.MANIFEST_PARSED, () => { statusMsg.textContent = 'Stream bereit — tippe ▶'; logEvent('hls: manifest parsed'); });
+    hls.on(Hls.Events.MANIFEST_PARSED, () => {
+      statusMsg.textContent = 'Stream bereit — tippe ▶';
+      logEvent('hls: manifest parsed', 'ok');
+    });
     hls.on(Hls.Events.LEVEL_LOADED, (_, d) => {
       if (d.details && d.details.totalduration > 30) {
-        dvrAvailable = true;
-        logEvent('hls: DVR verfügbar, ' + Math.round(d.details.totalduration/60) + ' Min');
+        if (!dvrAvailable) {
+          dvrAvailable = true;
+          logEvent('hls: DVR verfügbar, ' + Math.round(d.details.totalduration/60) + ' Min', 'ok');
+        }
       }
     });
     hls.on(Hls.Events.ERROR, (_, d) => {
-      logEvent('hls-error: '+d.type+'/'+d.details+(d.fatal?' [FATAL]':''));
-      if (d.fatal) { statusMsg.textContent = 'HLS-Fehler → MP3…'; hls.destroy(); hls=null; initMP3(); }
+      logEvent('hls-error: ' + d.type + '/' + d.details + (d.fatal?' [FATAL]':''), 'err');
+      if (d.fatal) {
+        statusMsg.textContent = 'HLS-Fehler → MP3…';
+        hls.destroy(); hls = null; initMP3();
+      }
     });
   } else if (audio.canPlayType('application/vnd.apple.mpegurl')) {
     audio.src = HLS_URL;
+    logEvent('native-hls: using Safari HLS');
     audio.addEventListener('durationchange', () => {
       const d = audio.duration;
-      if (d && d !== Infinity && d > 30) { dvrAvailable = true; logEvent('native-hls: DVR'); }
+      if (d && d !== Infinity && d > 30) {
+        dvrAvailable = true;
+        logEvent('native-hls: DVR verfügbar', 'ok');
+      }
     });
   } else { initMP3(); }
 }
@@ -367,26 +531,29 @@ function initMP3() {
   usingFallback = true; audio.src = MP3_URL; dvrAvailable = false;
   statusMsg.textContent = 'Tippe ▶ (MP3, kein Timeshift)';
   document.querySelectorAll('[data-sec]').forEach(b => { b.disabled=true; b.style.opacity='0.3'; });
-  logEvent('fallback: MP3');
+  logEvent('fallback: MP3 aktiv', 'err');
 }
 
 audio.addEventListener('playing', () => {
   isPlaying = true; btnPlay.textContent = '⏸';
   statusMsg.textContent = usingFallback ? 'Spielt (MP3).' : 'Spielt.';
   if (dvrAvailable && anchorCT === null) setAnchor();
-  sizePlay(); logEvent('audio: playing');
+  sizePlay();
+  logEvent('audio: playing, ct=' + audio.currentTime.toFixed(1), 'ok');
 });
 audio.addEventListener('pause',   () => { isPlaying=false; btnPlay.textContent='▶'; logEvent('audio: pause'); });
 audio.addEventListener('waiting', () => { statusMsg.textContent='Puffert…'; logEvent('audio: waiting'); });
-audio.addEventListener('stalled', () => { logEvent('audio: stalled'); });
+audio.addEventListener('stalled', () => { logEvent('audio: stalled', 'err'); });
 audio.addEventListener('error',   () => {
   const c = audio.error ? audio.error.code : '?';
+  const m = audio.error ? audio.error.message : '';
   statusMsg.textContent = 'Fehler. Neu laden.'; statusMsg.className = 'status err';
-  logEvent('audio: error code='+c);
+  logEvent('audio: error code=' + c + ' msg=' + m, 'err');
 });
 audio.addEventListener('timeupdate', updateUI);
 setInterval(updateUI, 1000);
 
+logEvent('player init v9.2');
 initHLS();
 </script>
 </body>
