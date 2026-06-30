@@ -3,3 +3,4 @@
 2026-06-30 10:05:00 | hls: DVR verfügbar, 125 Min
 2026-06-30 10:05:03 | audio: playing
 2026-06-30 10:05:06 | hls: DVR verfügbar, 125 Min
+2026-06-30 10:05:09 | hls-error: mediaError / bufferFullError
