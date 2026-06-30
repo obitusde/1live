@@ -1759,3 +1759,4 @@
 2026-06-30 12:02:37 | hls: DVR verfügbar, 125 Min
 2026-06-30 12:02:40 | hls: DVR verfügbar, 125 Min
 2026-06-30 12:02:43 | hls: DVR verfügbar, 125 Min
+2026-06-30 12:02:45 | hls: DVR verfügbar, 125 Min
