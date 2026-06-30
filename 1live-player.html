@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="mobile-web-app-capable" content="yes">
+<title>1LIVE Player</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/hls.js/1.5.7/hls.min.js"></script>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { width: 100%; height: 100%; background: #000; overflow: hidden; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Roboto', sans-serif;
+  color: #fff; height: 100dvh; display: flex; flex-direction: column;
+  padding: env(safe-area-inset-top,0) env(safe-area-inset-right,0)
+           env(safe-area-inset-bottom,0) env(safe-area-inset-left,0);
+}
+.topbar {
+  flex-shrink: 0; display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 14px; border-bottom: 2px solid #222;
+}
+.logo-box {
+  display: flex; align-items: center; gap: 8px;
+  background: #e8001c; border-radius: 8px; padding: 7px 14px 7px 10px;
+}
+.logo-dot  { width:11px; height:11px; border-radius:50%; background:#fff; }
+.logo-text { font-size:22px; font-weight:900; color:#fff; letter-spacing:-0.5px; }
+.logo-sub  { font-size:11px; color:#666; letter-spacing:2px; text-transform:uppercase; padding-left:8px; }
+.version   { font-size:11px; color:#e8001c; font-weight:900; padding-left:4px; }
+.topbar-right { display:flex; align-items:center; gap:10px; }
+.live-badge { display:flex; align-items:center; gap:6px; font-size:14px; font-weight:800; letter-spacing:2px; color:#00e676; }
+.live-badge.behind { color:#555; }
+.live-dot { width:10px; height:10px; border-radius:50%; background:#00e676; animation:blink 1.4s ease-in-out infinite; }
+.live-badge.behind .live-dot { background:#555; animation:none; }
+@keyframes blink { 0%,100%{opacity:1;transform:scale(1);} 50%{opacity:.3;transform:scale(1.4);} }
+.btn-reload {
+  background:none; border:1.5px solid #333; border-radius:8px; color:#666;
+  font-size:18px; cursor:pointer; width:34px; height:34px;
+  display:flex; align-items:center; justify-content:center;
+  -webkit-tap-highlight-color:transparent; transition:color .15s, border-color .15s;
+}
+.btn-reload:active { color:#fff; border-color:#555; }
+.now-playing {
+  flex-shrink:0; padding:8px 14px; border-bottom:2px solid #222;
+  min-height:38px; display:flex; align-items:center; gap:8px;
+}
+.np-label { font-size:11px; font-weight:700; color:#e8001c; letter-spacing:1px; text-transform:uppercase; flex-shrink:0; }
+.np-text  { font-size:13px; font-weight:600; color:#ccc; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.np-text.dim { color:#555; font-style:italic; }
+.progress-strip { flex-shrink:0; padding:8px 14px 10px; border-bottom:2px solid #222; }
+.prog-labels { display:flex; justify-content:space-between; font-size:14px; font-weight:700; color:#fff; margin-bottom:6px; }
+.prog-track { width:100%; height:8px; background:#333; border-radius:4px; cursor:pointer; }
+.prog-fill  { height:100%; background:#e8001c; border-radius:4px; transition:width .5s linear; width:100%; }
+.main { flex:1; min-height:0; display:flex; flex-direction:row; padding:10px; gap:10px; }
+.col     { flex:1; display:flex; flex-direction:column; gap:10px; }
+.col-mid { flex:0 0 32%; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px; }
+.btn {
+  flex:1; border:none; cursor:pointer; border-radius:16px; font-family:inherit; font-weight:800;
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  gap:6px; min-height:0; width:100%;
+  -webkit-tap-highlight-color:transparent; user-select:none; touch-action:manipulation;
+  transition:transform .1s, filter .1s;
+}
+.btn:active { transform:scale(0.90); filter:brightness(1.4); }
+.btn-back { background:#1e0306; color:#ff8fa0; border:2px solid #5a1018; }
+.btn-fwd  { background:#060e25; color:#8fc0ff; border:2px solid #142050; }
+.btn .ico { font-size:clamp(24px,6.5vw,36px); line-height:1; }
+.btn .lbl { font-size:clamp(13px,3.8vw,18px); }
+.btn-play {
+  border:none; cursor:pointer; border-radius:50%; background:#e8001c; color:#fff;
+  display:flex; align-items:center; justify-content:center; flex-shrink:0;
+  box-shadow:0 0 36px rgba(232,0,28,0.45);
+  -webkit-tap-highlight-color:transparent; user-select:none; touch-action:manipulation;
+  transition:transform .1s, filter .1s;
+}
+.btn-play:active { transform:scale(0.88); filter:brightness(1.2); }
+.btn-live {
+  display:none; border:none; cursor:pointer; border-radius:14px;
+  background:#00e676; color:#000; font-family:inherit;
+  font-size:clamp(16px,4.5vw,22px); font-weight:900; letter-spacing:.5px;
+  width:100%; padding:14px 0; align-items:center; justify-content:center; gap:8px;
+  flex-shrink:0; -webkit-tap-highlight-color:transparent; user-select:none;
+  touch-action:manipulation; transition:transform .1s;
+}
+.btn-live:active { transform:scale(0.92); }
+.bottom { flex-shrink:0; border-top:2px solid #222; padding:8px 14px 10px; }
+.status { font-size:13px; color:#888; text-align:center; min-height:18px; font-weight:600; }
+.status.err { color:#ff6b6b; }
+audio { display:none; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div style="display:flex;align-items:center">
+    <div class="logo-box"><div class="logo-dot"></div><div class="logo-text">1LIVE</div></div>
+    <div class="logo-sub">Für den Sektor</div>
+    <div class="version">v9.1</div>
+  </div>
+  <div class="topbar-right">
+    <div class="live-badge" id="liveBadge"><div class="live-dot"></div>LIVE</div>
+    <button class="btn-reload" id="btnReload" title="Seite neu laden">↺</button>
+  </div>
+</div>
+
+<div class="now-playing">
+  <span class="np-label">♫</span>
+  <span class="np-text dim" id="npText">—</span>
+</div>
+
+<div class="progress-strip">
+  <div class="prog-labels">
+    <span id="lblBehind"></span>
+    <span id="lblClock">– LIVE –</span>
+  </div>
+  <div class="prog-track" id="progTrack"><div class="prog-fill" id="progFill"></div></div>
+</div>
+
+<div class="main">
+  <div class="col">
+    <button class="btn btn-back" data-sec="-3600"><span class="ico">⏮</span><span class="lbl">− 1 Std</span></button>
+    <button class="btn btn-back" data-sec="-1800"><span class="ico">⏮</span><span class="lbl">− 30 Min</span></button>
+    <button class="btn btn-back" data-sec="-60"><span class="ico">⏮</span><span class="lbl">− 1 Min</span></button>
+    <button class="btn btn-back" data-sec="-10"><span class="ico">⏮</span><span class="lbl">− 10 Sek</span></button>
+  </div>
+  <div class="col-mid" id="colMid">
+    <button class="btn-play" id="btnPlay">▶</button>
+    <button class="btn-live" id="btnLive">● LIVE</button>
+  </div>
+  <div class="col">
+    <button class="btn btn-fwd" data-sec="3600"><span class="ico">⏭</span><span class="lbl">+ 1 Std</span></button>
+    <button class="btn btn-fwd" data-sec="1800"><span class="ico">⏭</span><span class="lbl">+ 30 Min</span></button>
+    <button class="btn btn-fwd" data-sec="60"><span class="ico">⏭</span><span class="lbl">+ 1 Min</span></button>
+    <button class="btn btn-fwd" data-sec="90"><span class="ico">⏭</span><span class="lbl">+ 90 Sek</span></button>
+  </div>
+</div>
+
+<div class="bottom">
+  <div class="status" id="statusMsg">Tippe ▶ zum Starten</div>
+</div>
+
+<audio id="audio"></audio>
+
+<script>
+const HLS_URL     = 'https://wdrhf.akamaized.net/hls/live/2027955/1live/master.m3u8';
+const MP3_URL     = 'https://wdr-1live-live.icecastssl.wdr.de/wdr/1live/live/mp3/128/stream.mp3';
+const STREAMTITLE = 'https://www.wdr.de/radio/radiotext/streamtitle_1live.txt';
+const WEBAPP_URL  = 'https://script.google.com/macros/s/AKfycbwoAI846IaHDiSGb7N6IZ_N08ZPlWUaGw90Aj0PTLcUpHWiTSleZ7UfTXzVx-4vJeQ6hg/exec';
+
+const audio     = document.getElementById('audio');
+const btnPlay   = document.getElementById('btnPlay');
+const btnLive   = document.getElementById('btnLive');
+const btnReload = document.getElementById('btnReload');
+const statusMsg = document.getElementById('statusMsg');
+const liveBadge = document.getElementById('liveBadge');
+const progFill  = document.getElementById('progFill');
+const lblBehind = document.getElementById('lblBehind');
+const lblClock  = document.getElementById('lblClock');
+const progTrack = document.getElementById('progTrack');
+const npText    = document.getElementById('npText');
+
+let hls = null, isPlaying = false, dvrAvailable = false, usingFallback = false;
+let anchorCT = null, anchorWall = null;
+let playlist = [], playlistLoaded = false, playlistLoading = false;
+let streamtitleInterval = null, streamtitleLast = '';
+const eventLog = [];
+
+function logEvent(msg) {
+  const ts = new Date().toISOString().replace('T',' ').substring(0,19);
+  eventLog.push(ts + ' | ' + msg);
+  if (eventLog.length > 200) eventLog.shift();
+  const url = WEBAPP_URL + '?action=log&entry=' + encodeURIComponent(msg);
+  fetch(url).catch(() => {});
+}
+
+function getLiveEdge() {
+  if (audio.seekable && audio.seekable.length > 0)
+    return audio.seekable.end(audio.seekable.length - 1);
+  const d = audio.duration;
+  return (!isNaN(d) && d !== Infinity && d > 0) ? d : null;
+}
+
+function setAnchor() {
+  const edge = getLiveEdge();
+  if (edge === null) return;
+  anchorCT = edge; anchorWall = Date.now();
+}
+
+function getStreamTime() {
+  if (!dvrAvailable || anchorCT === null) return new Date();
+  return new Date(anchorWall + (audio.currentTime - anchorCT) * 1000);
+}
+
+function pad2(n) { return String(n).padStart(2,'0'); }
+function fmtClock(d) { return pad2(d.getHours())+':'+pad2(d.getMinutes())+':'+pad2(d.getSeconds()); }
+function fmtBehind(s) {
+  s = Math.round(s);
+  if (s >= 3600) return '-'+Math.floor(s/3600)+'h '+pad2(Math.floor((s%3600)/60))+'m hinter live';
+  if (s >= 60)   return '-'+Math.floor(s/60)+'m '+pad2(s%60)+'s hinter live';
+  return '-'+s+'s hinter live';
+}
+function fmtDelta(s) {
+  s = Math.abs(Math.round(s));
+  if (s >= 3600) return Math.floor(s/3600)+'h '+pad2(Math.floor((s%3600)/60))+'m';
+  if (s >= 60)   return Math.floor(s/60)+'m '+pad2(s%60)+'s';
+  return s+'s';
+}
+
+function updateUI() {
+  const streamT   = getStreamTime();
+  const behindMs  = Date.now() - streamT.getTime();
+  const behindSec = Math.max(0, behindMs / 1000);
+
+  lblClock.textContent = (dvrAvailable && anchorCT !== null) ? fmtClock(streamT) : '– LIVE –';
+
+  if (dvrAvailable && behindSec > 3) {
+    progFill.style.width  = Math.max(0, Math.min(100, (1 - behindSec/7500)*100)) + '%';
+    lblBehind.textContent = fmtBehind(behindSec);
+    btnLive.style.display = 'flex';
+    liveBadge.classList.add('behind');
+  } else {
+    progFill.style.width  = '100%';
+    lblBehind.textContent = '';
+    btnLive.style.display = 'none';
+    liveBadge.classList.remove('behind');
+  }
+
+  if (!isPlaying) return;
+
+  if (behindSec <= 10) {
+    if (streamtitleLast) showNp(streamtitleLast, false);
+    return;
+  }
+  if (!playlistLoaded) { showNp('Playlist wird geladen…', true); return; }
+  if (!playlist.length) { showNp('Keine Titeldaten', true); return; }
+
+  const epochMin = Math.floor(streamT.getTime() / 60000);
+  let found = null;
+  for (let i = playlist.length - 1; i >= 0; i--) {
+    if (playlist[i].epochMin <= epochMin) { found = playlist[i]; break; }
+  }
+  showNp(found ? (found.artist ? found.artist+' — '+found.title : found.title) : '—', !found);
+}
+
+function showNp(text, dim) {
+  npText.textContent = text;
+  npText.className = 'np-text' + (dim ? ' dim' : '');
+}
+
+function startStreamtitlePolling() {
+  if (streamtitleInterval) clearInterval(streamtitleInterval);
+  fetchStreamtitle();
+  streamtitleInterval = setInterval(fetchStreamtitle, 30000);
+}
+
+function fetchStreamtitle() {
+  fetch(STREAMTITLE + '?t=' + Math.floor(Date.now()/1000))
+    .then(r => r.text())
+    .then(t => {
+      t = t.trim();
+      if (t && t !== streamtitleLast) { streamtitleLast = t; logEvent('now-playing: '+t); }
+    }).catch(() => {});
+}
+
+function loadPlaylist() {
+  playlistLoading = true;
+  showNp('Playlist wird geladen…', true);
+  logEvent('playlist-fetch: start');
+  const xhr = new XMLHttpRequest();
+  xhr.open('GET', WEBAPP_URL + '?action=playlist', true);
+  xhr.onload = function() {
+    try {
+      const data = JSON.parse(xhr.responseText);
+      if (data.ok && Array.isArray(data.items)) {
+        playlist = data.items; playlistLoaded = true;
+        logEvent('playlist-fetch: ok, ' + data.items.length + ' Eintraege');
+        showNp('—', true);
+      } else {
+        playlistLoaded = true;
+        logEvent('playlist-fetch: error ' + (data.error||'unknown'));
+        showNp('—', true);
+      }
+    } catch(e) {
+      playlistLoaded = true;
+      logEvent('playlist-fetch: parse error, status=' + xhr.status);
+      showNp('—', true);
+    }
+  };
+  xhr.onerror = function() {
+    playlistLoaded = true; logEvent('playlist-fetch: network error'); showNp('—', true);
+  };
+  xhr.send();
+}
+
+progTrack.addEventListener('click', e => {
+  if (!dvrAvailable || anchorCT === null) return;
+  const edge = getLiveEdge(); if (!edge) return;
+  const r = progTrack.getBoundingClientRect();
+  const pct = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width));
+  audio.currentTime = Math.max(0, Math.min(edge, edge - 7500 * (1 - pct)));
+});
+
+function seek(delta) {
+  if (!dvrAvailable) { statusMsg.textContent = 'Kein DVR-Puffer.'; return; }
+  const edge = getLiveEdge(); if (!edge) return;
+  audio.currentTime = Math.max(0, Math.min(edge, audio.currentTime + delta));
+  statusMsg.textContent = delta < 0 ? '− '+fmtDelta(delta)+' zurück' : '+ '+fmtDelta(delta)+' vor';
+  logEvent('seek: '+(delta>0?'+':'')+delta+'s');
+}
+document.querySelectorAll('[data-sec]').forEach(b => b.addEventListener('click', () => seek(+b.dataset.sec)));
+
+function sizePlay() {
+  const mid = document.getElementById('colMid');
+  const liveH = btnLive.offsetHeight || 0;
+  const size = Math.min(mid.clientHeight - liveH - (liveH>0?10:0), mid.clientWidth, 200);
+  btnPlay.style.width = btnPlay.style.height = size + 'px';
+  btnPlay.style.fontSize = Math.round(size * 0.4) + 'px';
+}
+window.addEventListener('resize', sizePlay);
+requestAnimationFrame(() => requestAnimationFrame(sizePlay));
+
+btnPlay.addEventListener('click', () => {
+  if (!playlistLoaded && !playlistLoading) {
+    loadPlaylist();
+    startStreamtitlePolling();
+  }
+  if (isPlaying) audio.pause();
+  else audio.play().catch(() => { statusMsg.textContent = 'Nochmal tippen ▶'; });
+});
+
+btnLive.addEventListener('click', () => {
+  if (!dvrAvailable) return;
+  const edge = getLiveEdge();
+  if (edge) audio.currentTime = edge - 1;
+  setAnchor();
+  statusMsg.textContent = 'Zurück zur Live-Kante.';
+  logEvent('jump-to-live');
+});
+
+btnReload.addEventListener('click', () => { logEvent('manual-reload'); setTimeout(() => location.reload(), 100); });
+
+function initHLS() {
+  if (typeof Hls !== 'undefined' && Hls.isSupported()) {
+    hls = new Hls({ enableWorker:true, lowLatencyMode:false, backBufferLength:90, maxBufferLength:60, maxMaxBufferLength:7200 });
+    hls.loadSource(HLS_URL);
+    hls.attachMedia(audio);
+    hls.on(Hls.Events.MANIFEST_PARSED, () => { statusMsg.textContent = 'Stream bereit — tippe ▶'; logEvent('hls: manifest parsed'); });
+    hls.on(Hls.Events.LEVEL_LOADED, (_, d) => {
+      if (d.details && d.details.totalduration > 30) {
+        dvrAvailable = true;
+        logEvent('hls: DVR verfügbar, ' + Math.round(d.details.totalduration/60) + ' Min');
+      }
+    });
+    hls.on(Hls.Events.ERROR, (_, d) => {
+      logEvent('hls-error: '+d.type+'/'+d.details+(d.fatal?' [FATAL]':''));
+      if (d.fatal) { statusMsg.textContent = 'HLS-Fehler → MP3…'; hls.destroy(); hls=null; initMP3(); }
+    });
+  } else if (audio.canPlayType('application/vnd.apple.mpegurl')) {
+    audio.src = HLS_URL;
+    audio.addEventListener('durationchange', () => {
+      const d = audio.duration;
+      if (d && d !== Infinity && d > 30) { dvrAvailable = true; logEvent('native-hls: DVR'); }
+    });
+  } else { initMP3(); }
+}
+
+function initMP3() {
+  usingFallback = true; audio.src = MP3_URL; dvrAvailable = false;
+  statusMsg.textContent = 'Tippe ▶ (MP3, kein Timeshift)';
+  document.querySelectorAll('[data-sec]').forEach(b => { b.disabled=true; b.style.opacity='0.3'; });
+  logEvent('fallback: MP3');
+}
+
+audio.addEventListener('playing', () => {
+  isPlaying = true; btnPlay.textContent = '⏸';
+  statusMsg.textContent = usingFallback ? 'Spielt (MP3).' : 'Spielt.';
+  if (dvrAvailable && anchorCT === null) setAnchor();
+  sizePlay(); logEvent('audio: playing');
+});
+audio.addEventListener('pause',   () => { isPlaying=false; btnPlay.textContent='▶'; logEvent('audio: pause'); });
+audio.addEventListener('waiting', () => { statusMsg.textContent='Puffert…'; logEvent('audio: waiting'); });
+audio.addEventListener('stalled', () => { logEvent('audio: stalled'); });
+audio.addEventListener('error',   () => {
+  const c = audio.error ? audio.error.code : '?';
+  statusMsg.textContent = 'Fehler. Neu laden.'; statusMsg.className = 'status err';
+  logEvent('audio: error code='+c);
+});
+audio.addEventListener('timeupdate', updateUI);
+setInterval(updateUI, 1000);
+
+initHLS();
+</script>
+</body>
+</html>
