@@ -90,6 +90,15 @@ body {
   touch-action:manipulation; transition:transform .1s;
 }
 .btn-live:active { transform:scale(0.92); }
+.btn-spotify {
+  display:none; border:none; cursor:pointer; border-radius:14px;
+  background:#1db954; color:#000; font-family:inherit;
+  font-size:clamp(14px,4vw,18px); font-weight:900; letter-spacing:.5px;
+  width:100%; padding:12px 0; align-items:center; justify-content:center; gap:8px;
+  flex-shrink:0; -webkit-tap-highlight-color:transparent; user-select:none;
+  touch-action:manipulation; transition:transform .1s;
+}
+.btn-spotify:active { transform:scale(0.92); filter:brightness(0.85); }
 .bottom { flex-shrink:0; border-top:2px solid #222; padding:8px 14px 10px; }
 .status { font-size:13px; color:#888; text-align:center; min-height:18px; font-weight:600; }
 .status.err { color:#ff6b6b; }
@@ -134,8 +143,7 @@ audio { display:none; }
 <div class="topbar">
   <div style="display:flex;align-items:center">
     <div class="logo-box"><div class="logo-dot"></div><div class="logo-text">1LIVE</div></div>
-    <div class="logo-sub">Für den Sektor</div>
-    <div class="version">v9.2</div>
+    <div class="version">v9.3</div>
   </div>
   <div class="topbar-right">
     <div class="live-badge" id="liveBadge"><div class="live-dot"></div>LIVE</div>
@@ -167,12 +175,13 @@ audio { display:none; }
   <div class="col-mid" id="colMid">
     <button class="btn-play" id="btnPlay">▶</button>
     <button class="btn-live" id="btnLive">● LIVE</button>
+    <button class="btn-spotify" id="btnSpotify">♫ Spotify</button>
   </div>
   <div class="col">
     <button class="btn btn-fwd" data-sec="3600"><span class="ico">⏭</span><span class="lbl">+ 1 Std</span></button>
     <button class="btn btn-fwd" data-sec="1800"><span class="ico">⏭</span><span class="lbl">+ 30 Min</span></button>
     <button class="btn btn-fwd" data-sec="60"><span class="ico">⏭</span><span class="lbl">+ 1 Min</span></button>
-    <button class="btn btn-fwd" data-sec="90"><span class="ico">⏭</span><span class="lbl">+ 90 Sek</span></button>
+    <button class="btn btn-fwd" data-sec="10"><span class="ico">⏭</span><span class="lbl">+ 10 Sek</span></button>
   </div>
 </div>
 
@@ -210,7 +219,7 @@ const lblBehind = document.getElementById('lblBehind');
 const lblClock  = document.getElementById('lblClock');
 const progTrack = document.getElementById('progTrack');
 const npText    = document.getElementById('npText');
-const debugOverlay = document.getElementById('debugOverlay');
+const btnSpotify  = document.getElementById('btnSpotify');
 const debugLog     = document.getElementById('debugLog');
 const debugClose   = document.getElementById('debugClose');
 const debugCopy    = document.getElementById('debugCopy');
@@ -366,7 +375,10 @@ function updateUI() {
   if (!isPlaying) return;
 
   if (behindSec <= 10) {
-    if (streamtitleLast) showNp(streamtitleLast, false);
+    if (streamtitleLast) {
+      showNp(streamtitleLast, false);
+      btnSpotify.style.display = isPlaying ? 'flex' : 'none';
+    }
     return;
   }
   if (!playlistLoaded) { showNp('Playlist wird geladen…', true); return; }
@@ -378,8 +390,23 @@ function updateUI() {
     if (playlist[i].epochMin <= epochMin) { found = playlist[i]; break; }
   }
   showNp(found ? (found.artist ? found.artist+' — '+found.title : found.title) : '—', !found);
+
+  // Spotify-Button anzeigen wenn Titel bekannt
+  const currentNp = npText.textContent;
+  if (isPlaying && currentNp && currentNp !== '—' && !npText.classList.contains('dim')) {
+    btnSpotify.style.display = 'flex';
+  } else {
+    btnSpotify.style.display = 'none';
+  }
 }
 
+btnSpotify.addEventListener('click', () => {
+  const text = npText.textContent;
+  if (!text || text === '—') return;
+  const query = encodeURIComponent(text);
+  window.open('https://open.spotify.com/search/' + query, '_blank');
+  logEvent('spotify-search: ' + text);
+});
 function showNp(text, dim) {
   npText.textContent = text;
   npText.className = 'np-text' + (dim ? ' dim' : '');
