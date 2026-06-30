@@ -169,8 +169,7 @@ function logEvent(msg) {
   const ts = new Date().toISOString().replace('T',' ').substring(0,19);
   eventLog.push(ts + ' | ' + msg);
   if (eventLog.length > 200) eventLog.shift();
-  const url = WEBAPP_URL + '?action=log&entry=' + encodeURIComponent(msg);
-  fetch(url).catch(() => {});
+  // Remote-Logging deaktiviert
 }
 
 function getLiveEdge() {
