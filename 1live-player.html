@@ -262,7 +262,7 @@ const HLS_URL      = 'https://wdrhf.akamaized.net/hls/live/2027955/1live/master.
 const MP3_URL      = 'https://wdr-1live-live.icecastssl.wdr.de/wdr/1live/live/mp3/128/stream.mp3';
 const STREAMTITLE  = 'https://www.wdr.de/radio/radiotext/streamtitle_1live.txt';
 // Nach dem Deployen der Web App hier eintragen:
-const WEBAPP_URL   = 'https://script.google.com/macros/s/AKfycbwoAI846IaHDiSGb7N6IZ_N08ZPlWUaGw90Aj0PTLcUpHWiTSleZ7UfTXzVx-4vJeQ6hg/exec';
+const WEBAPP_URL   = 'DEINE_WEBAPP_URL_HIER';
 
 // ── DOM ──────────────────────────────────────────────────────
 const audio     = document.getElementById('audio');
@@ -449,23 +449,33 @@ function loadPlaylist() {
   showNpText('Playlist wird geladen…', true);
   logEvent('playlist-fetch: start');
 
-  fetch(WEBAPP_URL + '?action=playlist')
-    .then(r => r.json())
-    .then(data => {
+  const xhr = new XMLHttpRequest();
+  xhr.open('GET', WEBAPP_URL + '?action=playlist', true);
+  xhr.onload = function() {
+    try {
+      const data = JSON.parse(xhr.responseText);
       if (data.ok && Array.isArray(data.items)) {
-        playlist      = data.items;
+        playlist       = data.items;
         playlistLoaded = true;
-        logEvent('playlist-fetch: ok, ' + data.items.length + ' Einträge');
+        logEvent('playlist-fetch: ok, ' + data.items.length + ' Eintraege');
         showNpText('—', true);
       } else {
         playlistLoaded = true;
         logEvent('playlist-fetch: error ' + (data.error || 'unknown'));
+        showNpText('—', true);
       }
-    })
-    .catch(err => {
+    } catch(e) {
       playlistLoaded = true;
-      logEvent('playlist-fetch: exception ' + err.message);
-    });
+      logEvent('playlist-fetch: parse error status=' + xhr.status);
+      showNpText('—', true);
+    }
+  };
+  xhr.onerror = function() {
+    playlistLoaded = true;
+    logEvent('playlist-fetch: network error');
+    showNpText('—', true);
+  };
+  xhr.send();
 }
 
 // ── Progress bar click ───────────────────────────────────────
