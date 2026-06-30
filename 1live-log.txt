@@ -1616,3 +1616,4 @@
 2026-06-30 11:52:29 | hls: DVR verfügbar, 125 Min
 2026-06-30 11:52:32 | hls: DVR verfügbar, 125 Min
 2026-06-30 11:52:35 | hls: manifest parsed
+2026-06-30 11:52:40 | hls: DVR verfügbar, 125 Min
