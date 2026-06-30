@@ -593,3 +593,4 @@
 2026-06-30 10:44:34 | audio: waiting (stall)
 2026-06-30 10:44:36 | hls: DVR verfügbar, 125 Min
 2026-06-30 10:44:37 | hls-error: mediaError / bufferFullError
+2026-06-30 10:44:39 | hls-error: mediaError / bufferFullError
