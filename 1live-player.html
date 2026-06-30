@@ -22,31 +22,27 @@ body {
 .logo-box {
   display: flex; align-items: center; gap: 8px;
   background: #e8001c; border-radius: 8px; padding: 7px 14px 7px 10px;
+  cursor: pointer; transition: filter .15s;
 }
-.logo-dot  { width:11px; height:11px; border-radius:50%; background:#fff; }
+.logo-box:active { filter: brightness(1.3); }
+.logo-dot  { width:11px; height:11px; border-radius:50%; background:#fff; flex-shrink:0; }
 .logo-text { font-size:22px; font-weight:900; color:#fff; letter-spacing:-0.5px; }
-.logo-sub  { font-size:11px; color:#666; letter-spacing:2px; text-transform:uppercase; padding-left:8px; }
-.version   { font-size:11px; color:#e8001c; font-weight:900; padding-left:4px; }
+.logo-sub  { font-size:13px; font-weight:900; color:#fff; opacity:.75; padding-left:4px; }
+.version   { font-size:11px; color:#555; font-weight:700; padding-left:8px; }
 .topbar-right { display:flex; align-items:center; gap:10px; }
 .live-badge { display:flex; align-items:center; gap:6px; font-size:14px; font-weight:800; letter-spacing:2px; color:#00e676; }
 .live-badge.behind { color:#555; }
 .live-dot { width:10px; height:10px; border-radius:50%; background:#00e676; animation:blink 1.4s ease-in-out infinite; }
 .live-badge.behind .live-dot { background:#555; animation:none; }
 @keyframes blink { 0%,100%{opacity:1;transform:scale(1);} 50%{opacity:.3;transform:scale(1.4);} }
-.btn-reload {
+.btn-icon {
   background:none; border:1.5px solid #333; border-radius:8px; color:#666;
-  font-size:18px; cursor:pointer; width:34px; height:34px;
+  font-size:16px; cursor:pointer; width:34px; height:34px;
   display:flex; align-items:center; justify-content:center;
   -webkit-tap-highlight-color:transparent; transition:color .15s, border-color .15s;
+  flex-shrink:0;
 }
-.btn-reload:active { color:#fff; border-color:#555; }
-.btn-debug {
-  background:none; border:1.5px solid #333; border-radius:8px; color:#666;
-  font-size:13px; font-weight:700; cursor:pointer; width:34px; height:34px;
-  display:flex; align-items:center; justify-content:center;
-  -webkit-tap-highlight-color:transparent; transition:color .15s, border-color .15s;
-}
-.btn-debug:active { color:#ff0; border-color:#ff0; }
+.btn-icon:active { color:#fff; border-color:#555; }
 .now-playing {
   flex-shrink:0; padding:8px 14px; border-bottom:2px solid #222;
   min-height:38px; display:flex; align-items:center; gap:8px;
@@ -104,6 +100,32 @@ body {
 .status.err { color:#ff6b6b; }
 audio { display:none; }
 
+/* Station-Switcher Overlay */
+.station-overlay {
+  display:none; position:fixed; inset:0; background:rgba(0,0,0,0.96);
+  z-index:998; flex-direction:column; align-items:center; justify-content:center; gap:16px; padding:24px;
+}
+.station-overlay.open { display:flex; }
+.station-title { font-size:14px; font-weight:900; color:#888; letter-spacing:3px; text-transform:uppercase; margin-bottom:8px; }
+.station-btn {
+  width:100%; max-width:320px; border:none; border-radius:16px; cursor:pointer;
+  padding:20px; font-family:inherit; font-weight:900; font-size:20px;
+  display:flex; align-items:center; gap:14px;
+  -webkit-tap-highlight-color:transparent; touch-action:manipulation;
+  transition:transform .1s, filter .1s;
+}
+.station-btn:active { transform:scale(0.95); }
+.station-btn-1live  { background:#e8001c; color:#fff; }
+.station-btn-diggi  { background:#6600cc; color:#fff; }
+.station-btn .s-dot { width:14px; height:14px; border-radius:50%; background:#fff; flex-shrink:0; }
+.station-btn .s-name { flex:1; text-align:left; }
+.station-btn .s-check { font-size:20px; }
+.station-cancel {
+  margin-top:8px; background:none; border:1.5px solid #333; border-radius:12px;
+  color:#666; font-family:inherit; font-size:15px; font-weight:700;
+  padding:12px 32px; cursor:pointer; -webkit-tap-highlight-color:transparent;
+}
+
 /* Debug Overlay */
 .debug-overlay {
   display:none; position:fixed; inset:0; background:rgba(0,0,0,0.95);
@@ -132,7 +154,6 @@ audio { display:none; }
   flex-shrink:0; border:none; border-radius:12px; background:#ff0;
   color:#000; font-family:inherit; font-size:15px; font-weight:900;
   padding:14px; cursor:pointer; -webkit-tap-highlight-color:transparent;
-  touch-action:manipulation;
 }
 .debug-copy:active { filter:brightness(0.8); }
 .debug-copied { background:#00e676 !important; }
@@ -142,13 +163,17 @@ audio { display:none; }
 
 <div class="topbar">
   <div style="display:flex;align-items:center">
-    <div class="logo-box"><div class="logo-dot"></div><div class="logo-text">1LIVE</div></div>
-    <div class="version">v9.3</div>
+    <div class="logo-box" id="btnStation">
+      <div class="logo-dot"></div>
+      <div class="logo-text" id="logoText">1LIVE</div>
+      <div class="logo-sub" id="logoSub"></div>
+    </div>
+    <div class="version">v9.4</div>
   </div>
   <div class="topbar-right">
     <div class="live-badge" id="liveBadge"><div class="live-dot"></div>LIVE</div>
-    <button class="btn-debug" id="btnDebug" title="Debug-Log">🐛</button>
-    <button class="btn-reload" id="btnReload" title="Seite neu laden">↺</button>
+    <button class="btn-icon" id="btnDebug" title="Debug-Log">🐛</button>
+    <button class="btn-icon" id="btnReload" title="Seite neu laden">↺</button>
   </div>
 </div>
 
@@ -189,10 +214,26 @@ audio { display:none; }
   <div class="status" id="statusMsg">Tippe ▶ zum Starten</div>
 </div>
 
+<!-- Station Switcher -->
+<div class="station-overlay" id="stationOverlay">
+  <div class="station-title">Sender wählen</div>
+  <button class="station-btn station-btn-1live" id="switchTo1live">
+    <div class="s-dot"></div>
+    <div class="s-name">1LIVE</div>
+    <div class="s-check" id="check1live">✓</div>
+  </button>
+  <button class="station-btn station-btn-diggi" id="switchToDiggi">
+    <div class="s-dot"></div>
+    <div class="s-name">1LIVE DIGGI</div>
+    <div class="s-check" id="checkDiggi"></div>
+  </button>
+  <button class="station-cancel" id="stationCancel">Abbrechen</button>
+</div>
+
 <!-- Debug Overlay -->
 <div class="debug-overlay" id="debugOverlay">
   <div class="debug-header">
-    <span class="debug-title">🐛 DEBUG LOG v9.2</span>
+    <span class="debug-title" id="debugTitle">🐛 DEBUG LOG v9.4</span>
     <button class="debug-close" id="debugClose">✕</button>
   </div>
   <div class="debug-log" id="debugLog"></div>
@@ -202,121 +243,118 @@ audio { display:none; }
 <audio id="audio"></audio>
 
 <script>
-const HLS_URL     = 'https://wdrhf.akamaized.net/hls/live/2027955/1live/master.m3u8';
-const MP3_URL     = 'https://wdr-1live-live.icecastssl.wdr.de/wdr/1live/live/mp3/128/stream.mp3';
-const STREAMTITLE = 'https://www.wdr.de/radio/radiotext/streamtitle_1live.txt';
-const WEBAPP_URL  = 'https://script.google.com/macros/s/AKfycbwoAI846IaHDiSGb7N6IZ_N08ZPlWUaGw90Aj0PTLcUpHWiTSleZ7UfTXzVx-4vJeQ6hg/exec';
+const WEBAPP_URL = 'https://script.google.com/macros/s/AKfycbwoAI846IaHDiSGb7N6IZ_N08ZPlWUaGw90Aj0PTLcUpHWiTSleZ7UfTXzVx-4vJeQ6hg/exec';
 
-const audio     = document.getElementById('audio');
-const btnPlay   = document.getElementById('btnPlay');
-const btnLive   = document.getElementById('btnLive');
-const btnReload = document.getElementById('btnReload');
-const btnDebug  = document.getElementById('btnDebug');
-const statusMsg = document.getElementById('statusMsg');
-const liveBadge = document.getElementById('liveBadge');
-const progFill  = document.getElementById('progFill');
-const lblBehind = document.getElementById('lblBehind');
-const lblClock  = document.getElementById('lblClock');
-const progTrack = document.getElementById('progTrack');
-const npText    = document.getElementById('npText');
-const btnSpotify  = document.getElementById('btnSpotify');
-const debugLog     = document.getElementById('debugLog');
-const debugClose   = document.getElementById('debugClose');
-const debugCopy    = document.getElementById('debugCopy');
+const STATIONS = {
+  '1live': {
+    label:    '1LIVE',
+    sub:      '',
+    color:    '#e8001c',
+    hls:      'https://wdrhf.akamaized.net/hls/live/2027955/1live/master.m3u8',
+    mp3:      'https://wdr-1live-live.icecastssl.wdr.de/wdr/1live/live/mp3/128/stream.mp3',
+  },
+  'diggi': {
+    label:    '1LIVE',
+    sub:      'DIGGI',
+    color:    '#6600cc',
+    hls:      'https://wdrhf.akamaized.net/hls/live/2027963/1livediggi/master.m3u8',
+    mp3:      'https://wdr-1live-diggi.icecastssl.wdr.de/wdr/1live/diggi/mp3/128/stream.mp3',
+  }
+};
 
+// DOM refs
+const audio          = document.getElementById('audio');
+const btnPlay        = document.getElementById('btnPlay');
+const btnLive        = document.getElementById('btnLive');
+const btnSpotify     = document.getElementById('btnSpotify');
+const btnReload      = document.getElementById('btnReload');
+const btnDebug       = document.getElementById('btnDebug');
+const btnStation     = document.getElementById('btnStation');
+const statusMsg      = document.getElementById('statusMsg');
+const liveBadge      = document.getElementById('liveBadge');
+const progFill       = document.getElementById('progFill');
+const lblBehind      = document.getElementById('lblBehind');
+const lblClock       = document.getElementById('lblClock');
+const progTrack      = document.getElementById('progTrack');
+const npText         = document.getElementById('npText');
+const logoText       = document.getElementById('logoText');
+const logoSub        = document.getElementById('logoSub');
+const stationOverlay = document.getElementById('stationOverlay');
+const stationCancel  = document.getElementById('stationCancel');
+const switchTo1live  = document.getElementById('switchTo1live');
+const switchToDiggi  = document.getElementById('switchToDiggi');
+const check1live     = document.getElementById('check1live');
+const checkDiggi     = document.getElementById('checkDiggi');
+const debugOverlay   = document.getElementById('debugOverlay');
+const debugLog       = document.getElementById('debugLog');
+const debugClose     = document.getElementById('debugClose');
+const debugCopy      = document.getElementById('debugCopy');
+const debugTitle     = document.getElementById('debugTitle');
+
+// State
+let currentStation = '1live';
 let hls = null, isPlaying = false, dvrAvailable = false, usingFallback = false;
 let anchorCT = null, anchorWall = null;
 let playlist = [], playlistLoaded = false, playlistLoading = false;
 let streamtitleInterval = null, streamtitleLast = '';
 const eventLog = [];
 
+// ── Logging ───────────────────────────────────────────────────
 function logEvent(msg, level) {
   const ts = new Date().toISOString().replace('T',' ').substring(0,19);
-  const line = ts + ' | ' + msg;
-  eventLog.push({ line, level: level || 'info' });
+  eventLog.push({ line: ts + ' | ' + msg, level: level || 'info' });
   if (eventLog.length > 300) eventLog.shift();
 }
 
-// ── Debug Overlay ─────────────────────────────────────────────
-btnDebug.addEventListener('click', () => {
-  // State-Snapshot oben anheften
-  const snap = [
-    '=== SNAPSHOT @ ' + new Date().toISOString().substring(0,19) + ' ===',
-    'isPlaying:    ' + isPlaying,
-    'dvrAvailable: ' + dvrAvailable,
-    'usingFallback:' + usingFallback,
-    'anchorCT:     ' + anchorCT,
-    'anchorWall:   ' + (anchorWall ? new Date(anchorWall).toISOString() : 'null'),
-    'currentTime:  ' + audio.currentTime.toFixed(1),
-    'duration:     ' + audio.duration,
-    'seekable.end: ' + (audio.seekable.length ? audio.seekable.end(audio.seekable.length-1).toFixed(1) : 'n/a'),
-    'playlistItems:' + playlist.length,
-    'playlistLoaded:' + playlistLoaded,
-    'streamTitle:  ' + streamtitleLast,
-    '=== EVENT LOG (' + eventLog.length + ' entries) ===',
-    ''
-  ].join('\n');
+// ── Station UI ────────────────────────────────────────────────
+function applyStation(key) {
+  const s = STATIONS[key];
+  logoText.textContent = s.label;
+  logoSub.textContent  = s.sub;
+  document.querySelector('.logo-box').style.background = s.color;
+  document.querySelector('.prog-fill').style.background = s.color;
+  document.querySelector('.np-label').style.color = s.color;
+  document.querySelector('.version').style.color = s.color;
+  check1live.textContent = key === '1live' ? '✓' : '';
+  checkDiggi.textContent = key === 'diggi'  ? '✓' : '';
+  document.title = key === 'diggi' ? '1LIVE DIGGI Player' : '1LIVE Player';
+  debugTitle.textContent = '🐛 DEBUG LOG v9.4 [' + key + ']';
+}
 
-  debugLog.innerHTML = '';
+btnStation.addEventListener('click', () => stationOverlay.classList.add('open'));
+stationCancel.addEventListener('click', () => stationOverlay.classList.remove('open'));
 
-  // Snapshot einfügen
-  const snapEl = document.createElement('div');
-  snapEl.style.color = '#ff0';
-  snapEl.style.marginBottom = '8px';
-  snapEl.textContent = snap;
-  debugLog.appendChild(snapEl);
+function switchStation(key) {
+  if (key === currentStation) { stationOverlay.classList.remove('open'); return; }
+  stationOverlay.classList.remove('open');
+  logEvent('station-switch: ' + currentStation + ' → ' + key);
 
-  // Log-Einträge einfügen
-  eventLog.forEach(({ line, level }) => {
-    const el = document.createElement('div');
-    el.className = level === 'err' ? 'line-err' : level === 'ok' ? 'line-ok' : 'line-info';
-    el.textContent = line;
-    debugLog.appendChild(el);
-  });
+  // Stop current playback
+  audio.pause();
+  if (hls) { hls.destroy(); hls = null; }
+  isPlaying = false; btnPlay.textContent = '▶';
+  dvrAvailable = false; usingFallback = false;
+  anchorCT = null; anchorWall = null;
+  playlist = []; playlistLoaded = false; playlistLoading = false;
+  streamtitleLast = '';
+  if (streamtitleInterval) { clearInterval(streamtitleInterval); streamtitleInterval = null; }
+  showNp('—', true);
+  btnSpotify.style.display = 'none';
+  btnLive.style.display = 'none';
+  progFill.style.width = '100%';
+  lblBehind.textContent = '';
+  lblClock.textContent = '– LIVE –';
+  liveBadge.classList.remove('behind');
 
-  debugOverlay.classList.add('open');
-  debugLog.scrollTop = debugLog.scrollHeight;
-});
+  currentStation = key;
+  applyStation(key);
+  statusMsg.textContent = 'Tippe ▶ zum Starten';
+  statusMsg.className = 'status';
+  initHLS();
+}
 
-debugClose.addEventListener('click', () => debugOverlay.classList.remove('open'));
-
-debugCopy.addEventListener('click', () => {
-  const snap = [
-    '=== SNAPSHOT @ ' + new Date().toISOString().substring(0,19) + ' ===',
-    'isPlaying:    ' + isPlaying,
-    'dvrAvailable: ' + dvrAvailable,
-    'usingFallback:' + usingFallback,
-    'anchorCT:     ' + anchorCT,
-    'anchorWall:   ' + (anchorWall ? new Date(anchorWall).toISOString() : 'null'),
-    'currentTime:  ' + audio.currentTime.toFixed(1),
-    'duration:     ' + audio.duration,
-    'seekable.end: ' + (audio.seekable.length ? audio.seekable.end(audio.seekable.length-1).toFixed(1) : 'n/a'),
-    'playlistItems:' + playlist.length,
-    'playlistLoaded:' + playlistLoaded,
-    'streamTitle:  ' + streamtitleLast,
-    '=== EVENT LOG (' + eventLog.length + ' entries) ===',
-    ...eventLog.map(e => e.line)
-  ].join('\n');
-
-  navigator.clipboard.writeText(snap).then(() => {
-    debugCopy.textContent = '✅ Kopiert!';
-    debugCopy.classList.add('debug-copied');
-    setTimeout(() => {
-      debugCopy.textContent = '📋 Log kopieren';
-      debugCopy.classList.remove('debug-copied');
-    }, 2000);
-  }).catch(() => {
-    // Fallback: Text markieren
-    const ta = document.createElement('textarea');
-    ta.value = snap;
-    ta.style.position = 'fixed'; ta.style.opacity = '0';
-    document.body.appendChild(ta);
-    ta.select(); document.execCommand('copy');
-    document.body.removeChild(ta);
-    debugCopy.textContent = '✅ Kopiert!';
-    setTimeout(() => { debugCopy.textContent = '📋 Log kopieren'; }, 2000);
-  });
-});
+switchTo1live.addEventListener('click', () => switchStation('1live'));
+switchToDiggi.addEventListener('click', () => switchStation('diggi'));
 
 // ── Player Logic ──────────────────────────────────────────────
 function getLiveEdge() {
@@ -377,36 +415,23 @@ function updateUI() {
   if (behindSec <= 10) {
     if (streamtitleLast) {
       showNp(streamtitleLast, false);
-      btnSpotify.style.display = isPlaying ? 'flex' : 'none';
+      btnSpotify.style.display = 'flex';
     }
     return;
   }
-  if (!playlistLoaded) { showNp('Playlist wird geladen…', true); return; }
-  if (!playlist.length) { showNp('Keine Titeldaten', true); return; }
+  if (!playlistLoaded) { showNp('Playlist wird geladen…', true); btnSpotify.style.display='none'; return; }
+  if (!playlist.length) { showNp('Keine Titeldaten', true); btnSpotify.style.display='none'; return; }
 
   const epochMin = Math.floor(streamT.getTime() / 60000);
   let found = null;
   for (let i = playlist.length - 1; i >= 0; i--) {
     if (playlist[i].epochMin <= epochMin) { found = playlist[i]; break; }
   }
-  showNp(found ? (found.artist ? found.artist+' — '+found.title : found.title) : '—', !found);
-
-  // Spotify-Button anzeigen wenn Titel bekannt
-  const currentNp = npText.textContent;
-  if (isPlaying && currentNp && currentNp !== '—' && !npText.classList.contains('dim')) {
-    btnSpotify.style.display = 'flex';
-  } else {
-    btnSpotify.style.display = 'none';
-  }
+  const npStr = found ? (found.artist ? found.artist+' — '+found.title : found.title) : '—';
+  showNp(npStr, !found);
+  btnSpotify.style.display = (found && isPlaying) ? 'flex' : 'none';
 }
 
-btnSpotify.addEventListener('click', () => {
-  const text = npText.textContent;
-  if (!text || text === '—') return;
-  const query = encodeURIComponent(text);
-  window.open('https://open.spotify.com/search/' + query, '_blank');
-  logEvent('spotify-search: ' + text);
-});
 function showNp(text, dim) {
   npText.textContent = text;
   npText.className = 'np-text' + (dim ? ' dim' : '');
@@ -419,13 +444,13 @@ function startStreamtitlePolling() {
 }
 
 function fetchStreamtitle() {
-  fetch(STREAMTITLE + '?t=' + Math.floor(Date.now()/1000))
-    .then(r => r.text())
-    .then(t => {
-      t = t.trim();
-      if (t && t !== streamtitleLast) {
-        streamtitleLast = t;
-        logEvent('now-playing: ' + t, 'ok');
+  const url = WEBAPP_URL + '?action=streamtitle&station=' + currentStation;
+  fetch(url)
+    .then(r => r.json())
+    .then(data => {
+      if (data.ok && data.title && data.title !== streamtitleLast) {
+        streamtitleLast = data.title;
+        logEvent('now-playing: ' + data.title, 'ok');
       }
     }).catch(err => logEvent('streamtitle-error: ' + err.message, 'err'));
 }
@@ -433,9 +458,9 @@ function fetchStreamtitle() {
 function loadPlaylist() {
   playlistLoading = true;
   showNp('Playlist wird geladen…', true);
-  logEvent('playlist-fetch: start');
+  logEvent('playlist-fetch: start [' + currentStation + ']');
   const xhr = new XMLHttpRequest();
-  xhr.open('GET', WEBAPP_URL + '?action=playlist', true);
+  xhr.open('GET', WEBAPP_URL + '?action=playlist&station=' + currentStation, true);
   xhr.onload = function() {
     try {
       const data = JSON.parse(xhr.responseText);
@@ -451,7 +476,7 @@ function loadPlaylist() {
       }
     } catch(e) {
       playlistLoaded = true;
-      logEvent('playlist-fetch: parse error, status=' + xhr.status + ', body=' + xhr.responseText.substring(0,100), 'err');
+      logEvent('playlist-fetch: parse error, status=' + xhr.status, 'err');
       showNp('—', true);
     }
   };
@@ -476,15 +501,18 @@ function seek(delta) {
   const edge = getLiveEdge(); if (!edge) return;
   const before = audio.currentTime;
   audio.currentTime = Math.max(0, Math.min(edge, audio.currentTime + delta));
-  logEvent('seek: ' + (delta>0?'+':'') + delta + 's, ct=' + before.toFixed(0) + '→' + audio.currentTime.toFixed(0));
+  logEvent('seek: '+(delta>0?'+':'')+delta+'s, ct='+before.toFixed(0)+'→'+audio.currentTime.toFixed(0));
   statusMsg.textContent = delta < 0 ? '− '+fmtDelta(delta)+' zurück' : '+ '+fmtDelta(delta)+' vor';
 }
 document.querySelectorAll('[data-sec]').forEach(b => b.addEventListener('click', () => seek(+b.dataset.sec)));
 
 function sizePlay() {
   const mid = document.getElementById('colMid');
-  const liveH = btnLive.offsetHeight || 0;
-  const size = Math.min(mid.clientHeight - liveH - (liveH>0?10:0), mid.clientWidth, 200);
+  const liveH    = btnLive.offsetHeight    || 0;
+  const spotifyH = btnSpotify.offsetHeight || 0;
+  const gap = 10;
+  const usedH = (liveH > 0 ? liveH + gap : 0) + (spotifyH > 0 ? spotifyH + gap : 0);
+  const size = Math.min(mid.clientHeight - usedH, mid.clientWidth, 200);
   btnPlay.style.width = btnPlay.style.height = size + 'px';
   btnPlay.style.fontSize = Math.round(size * 0.4) + 'px';
 }
@@ -512,41 +540,42 @@ btnLive.addEventListener('click', () => {
   logEvent('jump-to-live', 'ok');
 });
 
-btnReload.addEventListener('click', () => {
-  logEvent('manual-reload');
-  setTimeout(() => location.reload(), 100);
+btnSpotify.addEventListener('click', () => {
+  const text = npText.textContent;
+  if (!text || text === '—') return;
+  window.open('https://open.spotify.com/search/' + encodeURIComponent(text), '_blank');
+  logEvent('spotify-search: ' + text);
 });
 
+btnReload.addEventListener('click', () => { logEvent('manual-reload'); setTimeout(() => location.reload(), 100); });
+
+// ── HLS ───────────────────────────────────────────────────────
 function initHLS() {
+  const st = STATIONS[currentStation];
   if (typeof Hls !== 'undefined' && Hls.isSupported()) {
     hls = new Hls({ enableWorker:true, lowLatencyMode:false, backBufferLength:90, maxBufferLength:60, maxMaxBufferLength:7200 });
-    hls.loadSource(HLS_URL);
+    hls.loadSource(st.hls);
     hls.attachMedia(audio);
     hls.on(Hls.Events.MANIFEST_PARSED, () => {
       statusMsg.textContent = 'Stream bereit — tippe ▶';
-      logEvent('hls: manifest parsed', 'ok');
+      logEvent('hls: manifest parsed [' + currentStation + ']', 'ok');
     });
     hls.on(Hls.Events.LEVEL_LOADED, (_, d) => {
-      if (d.details && d.details.totalduration > 30) {
-        if (!dvrAvailable) {
-          dvrAvailable = true;
-          logEvent('hls: DVR verfügbar, ' + Math.round(d.details.totalduration/60) + ' Min', 'ok');
-        }
+      if (d.details && d.details.totalduration > 30 && !dvrAvailable) {
+        dvrAvailable = true;
+        logEvent('hls: DVR verfügbar, ' + Math.round(d.details.totalduration/60) + ' Min', 'ok');
       }
     });
     hls.on(Hls.Events.ERROR, (_, d) => {
-      logEvent('hls-error: ' + d.type + '/' + d.details + (d.fatal?' [FATAL]':''), 'err');
-      if (d.fatal) {
-        statusMsg.textContent = 'HLS-Fehler → MP3…';
-        hls.destroy(); hls = null; initMP3();
-      }
+      logEvent('hls-error: '+d.type+'/'+d.details+(d.fatal?' [FATAL]':''), 'err');
+      if (d.fatal) { statusMsg.textContent = 'HLS-Fehler → MP3…'; hls.destroy(); hls=null; initMP3(); }
     });
   } else if (audio.canPlayType('application/vnd.apple.mpegurl')) {
-    audio.src = HLS_URL;
-    logEvent('native-hls: using Safari HLS');
+    audio.src = st.hls;
+    logEvent('native-hls: using Safari HLS [' + currentStation + ']');
     audio.addEventListener('durationchange', () => {
       const d = audio.duration;
-      if (d && d !== Infinity && d > 30) {
+      if (d && d !== Infinity && d > 30 && !dvrAvailable) {
         dvrAvailable = true;
         logEvent('native-hls: DVR verfügbar', 'ok');
       }
@@ -555,10 +584,11 @@ function initHLS() {
 }
 
 function initMP3() {
-  usingFallback = true; audio.src = MP3_URL; dvrAvailable = false;
+  const st = STATIONS[currentStation];
+  usingFallback = true; audio.src = st.mp3; dvrAvailable = false;
   statusMsg.textContent = 'Tippe ▶ (MP3, kein Timeshift)';
   document.querySelectorAll('[data-sec]').forEach(b => { b.disabled=true; b.style.opacity='0.3'; });
-  logEvent('fallback: MP3 aktiv', 'err');
+  logEvent('fallback: MP3 [' + currentStation + ']', 'err');
 }
 
 audio.addEventListener('playing', () => {
@@ -575,12 +605,68 @@ audio.addEventListener('error',   () => {
   const c = audio.error ? audio.error.code : '?';
   const m = audio.error ? audio.error.message : '';
   statusMsg.textContent = 'Fehler. Neu laden.'; statusMsg.className = 'status err';
-  logEvent('audio: error code=' + c + ' msg=' + m, 'err');
+  logEvent('audio: error code='+c+' msg='+m, 'err');
 });
 audio.addEventListener('timeupdate', updateUI);
 setInterval(updateUI, 1000);
 
-logEvent('player init v9.2');
+// ── Debug Overlay ─────────────────────────────────────────────
+function buildSnap() {
+  return [
+    '=== SNAPSHOT @ ' + new Date().toISOString().substring(0,19) + ' ===',
+    'station:      ' + currentStation,
+    'isPlaying:    ' + isPlaying,
+    'dvrAvailable: ' + dvrAvailable,
+    'usingFallback:' + usingFallback,
+    'anchorCT:     ' + anchorCT,
+    'anchorWall:   ' + (anchorWall ? new Date(anchorWall).toISOString() : 'null'),
+    'currentTime:  ' + audio.currentTime.toFixed(1),
+    'duration:     ' + audio.duration,
+    'seekable.end: ' + (audio.seekable.length ? audio.seekable.end(audio.seekable.length-1).toFixed(1) : 'n/a'),
+    'playlistItems:' + playlist.length,
+    'playlistLoaded:' + playlistLoaded,
+    'streamTitle:  ' + streamtitleLast,
+    '=== EVENT LOG (' + eventLog.length + ' entries) ===',
+    ''
+  ].join('\n');
+}
+
+btnDebug.addEventListener('click', () => {
+  debugLog.innerHTML = '';
+  const snapEl = document.createElement('div');
+  snapEl.style.color = '#ff0'; snapEl.style.marginBottom = '8px';
+  snapEl.textContent = buildSnap();
+  debugLog.appendChild(snapEl);
+  eventLog.forEach(({ line, level }) => {
+    const el = document.createElement('div');
+    el.className = level === 'err' ? 'line-err' : level === 'ok' ? 'line-ok' : 'line-info';
+    el.textContent = line;
+    debugLog.appendChild(el);
+  });
+  debugOverlay.classList.add('open');
+  debugLog.scrollTop = debugLog.scrollHeight;
+});
+
+debugClose.addEventListener('click', () => debugOverlay.classList.remove('open'));
+
+debugCopy.addEventListener('click', () => {
+  const text = buildSnap() + eventLog.map(e => e.line).join('\n');
+  navigator.clipboard.writeText(text).then(() => {
+    debugCopy.textContent = '✅ Kopiert!';
+    debugCopy.classList.add('debug-copied');
+    setTimeout(() => { debugCopy.textContent = '📋 Log kopieren'; debugCopy.classList.remove('debug-copied'); }, 2000);
+  }).catch(() => {
+    const ta = document.createElement('textarea');
+    ta.value = text; ta.style.position='fixed'; ta.style.opacity='0';
+    document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
+    debugCopy.textContent = '✅ Kopiert!';
+    setTimeout(() => { debugCopy.textContent = '📋 Log kopieren'; }, 2000);
+  });
+});
+
+// ── Init ──────────────────────────────────────────────────────
+logEvent('player init v9.4 [' + currentStation + ']');
+applyStation(currentStation);
 initHLS();
 </script>
 </body>
