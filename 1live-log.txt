@@ -667,3 +667,4 @@
 2026-06-30 10:49:16 | audio: playing
 2026-06-30 10:49:21 | audio: playing
 2026-06-30 10:49:23 | audio: waiting (stall)
+2026-06-30 10:49:24 | seek: +60s
