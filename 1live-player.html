@@ -551,7 +551,11 @@ function updateUI() {
   if (!playlistLoaded) { showNp('Playlist wird geladen…', true); btnSpotify.style.display='none'; return; }
   if (!playlist.length) { showNp('—', true); btnSpotify.style.display='none'; return; }
 
-  const epochMin = Math.floor(streamT.getTime() / 60000);
+  // Volle Praezision (keine Minuten-Rundung) — wichtig fuer BR, wo Songs
+  // sekundengenaue Startzeiten haben. Bei WDR/NDR (nur HH:MM bekannt) macht
+  // das keinen Unterschied, da deren epochMin-Werte ohnehin auf volle
+  // Minuten liegen.
+  const epochMin = streamT.getTime() / 60000;
 
   // Prüfen ob epochMin innerhalb der Playlist-Range liegt
   const firstMin = playlist[0].epochMin;
