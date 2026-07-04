@@ -476,11 +476,22 @@ function getLiveEdge() {
   return (!isNaN(d) && d !== Infinity && d > 0) ? d : null;
 }
 
+// Normale (nicht Low-Latency-)HLS-Streams melden eine "Live-Kante", die
+// selbst schon einige Sekunden hinter der echten Sendezeit liegt
+// (Segmentierungs-/Verpackungs-Verzoegerung). Ohne Korrektur haelt sich der
+// Player fuer weiter "in der Zukunft" als er ist, wodurch alle Sprungziele
+// (seek/seekToSong) um exakt diesen Betrag zu frueh landen. Empirisch bei
+// diesem Stream ermittelt (Bayern 1, 8-10s konsistent) — betrifft technisch
+// alle Sender gleich, faellt aber nur bei BR auf, weil da die Zeiten
+// sekundengenau sind statt nur auf die Minute genau.
+const HLS_LIVE_LATENCY_SEC = 9;
+
 function setAnchor() {
   const edge = getLiveEdge();
   if (edge === null) return;
-  anchorCT = edge; anchorWall = Date.now();
-  logEvent('anchor set: ct=' + edge.toFixed(1), 'ok');
+  anchorCT = edge;
+  anchorWall = Date.now() - HLS_LIVE_LATENCY_SEC * 1000;
+  logEvent('anchor set: ct=' + edge.toFixed(1) + ' (Latenz-korrigiert -' + HLS_LIVE_LATENCY_SEC + 's)', 'ok');
 }
 
 function getStreamTime() {
@@ -866,6 +877,27 @@ function buildSnap() {
     year: 'numeric', month: '2-digit', day: '2-digit',
     hour: '2-digit', minute: '2-digit', second: '2-digit'
   });
+
+  // Playlist-Umgebung der aktuellen Position ermitteln (fuer Diagnose:
+  // steht da wirklich eine Luecke, oder ist es ein Anzeige-Bug?)
+  let playlistContext = 'n/a';
+  if (playlist.length) {
+    const streamT = getStreamTime();
+    const curMin = streamT.getTime() / 60000;
+    let idx = -1;
+    for (let i = playlist.length - 1; i >= 0; i--) {
+      if (playlist[i].epochMin <= curMin) { idx = i; break; }
+    }
+    const from = Math.max(0, idx - 2);
+    const to = Math.min(playlist.length - 1, idx + 3);
+    const lines = [];
+    for (let i = from; i <= to; i++) {
+      const marker = i === idx ? ' <== AKTUELL' : '';
+      lines.push('    [' + i + '] ' + playlist[i].time + ' | ' + JSON.stringify(playlist[i].artist) + ' | ' + playlist[i].title + marker);
+    }
+    playlistContext = '\n' + lines.join('\n');
+  }
+
   return [
     '=== SNAPSHOT @ ' + now + ' ===',
     'station:       ' + currentStation,
@@ -881,6 +913,8 @@ function buildSnap() {
     'playlistRange: ' + (playlist.length ? playlist[0].time + '–' + playlist[playlist.length-1].time : 'leer'),
     'playlistLoaded:' + playlistLoaded,
     'streamTitle:   ' + streamtitleLast,
+    'angezeigterTitel (npText): ' + JSON.stringify(npText.textContent),
+    'playlistContext um aktuelle Position:' + playlistContext,
     '=== EVENT LOG (' + eventLog.length + ' entries) ===',
     ''
   ].join('\n');
