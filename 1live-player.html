@@ -376,6 +376,9 @@ let playlist          = [];
 let playlistLoaded   = false;
 let playlistLoading  = false;
 let playlistTimer    = null;
+let playlistDepth        = 3;   // wird pro Sender-Wechsel zurueckgesetzt; klein = schnell
+let playlistLoadedDepth  = 0;   // wie tief tatsaechlich zuletzt geladen wurde
+const PLAYLIST_MAX_DEPTH = 30;  // Obergrenze, deckt den vollen BR-DVR-Puffer ab
 let streamtitleInterval = null;
 let streamtitleLast  = '';
 const eventLog       = [];
@@ -439,6 +442,7 @@ function switchStation(key) {
   dvrAvailable = false; usingFallback = false;
   anchorCT = null; anchorWall = null;
   playlist = []; playlistLoaded = false; playlistLoading = false;
+  playlistDepth = 3; playlistLoadedDepth = 0;
   streamtitleLast = '';
   showNp('—', true);
   btnSpotify.style.display = 'none';
@@ -561,6 +565,16 @@ function updateUI() {
   const firstMin = playlist[0].epochMin;
   const lastMin  = playlist[playlist.length - 1].epochMin;
   if (epochMin < firstMin || epochMin > lastMin + 10) {
+    // Zu weit zurueckgespult fuer das bisher Geladene? Einmalig tiefer
+    // nachladen (nur sinnvoll bei BR, WDR/NDR laden ihre ~4 Std. ohnehin
+    // schon in einem Rutsch und ignorieren den depth-Parameter).
+    if (epochMin < firstMin && currentStation === 'br1' &&
+        playlistLoadedDepth < PLAYLIST_MAX_DEPTH && !playlistLoading) {
+      playlistDepth = PLAYLIST_MAX_DEPTH;
+      statusMsg.textContent = 'Lade ältere Playlist…';
+      logEvent('playlist-deepen: depth ' + playlistLoadedDepth + ' -> ' + PLAYLIST_MAX_DEPTH);
+      loadPlaylist();
+    }
     // Ausserhalb der bekannten Range → kein veralteter Titel
     showNp('—', true);
     btnSpotify.style.display = 'none';
@@ -585,17 +599,19 @@ setInterval(updateUI, 1000);
 function loadPlaylist() {
   if (playlistLoading) return;
   playlistLoading = true;
-  logEvent('playlist-fetch: start [' + currentStation + ']');
+  logEvent('playlist-fetch: start [' + currentStation + '] depth=' + playlistDepth);
   const xhr = new XMLHttpRequest();
-  xhr.open('GET', WEBAPP_URL + '?action=playlist&station=' + currentStation, true);
+  xhr.open('GET', WEBAPP_URL + '?action=playlist&station=' + currentStation + '&depth=' + playlistDepth, true);
   xhr.onload = function() {
     playlistLoading = false;
     try {
       const data = JSON.parse(xhr.responseText);
       if (data.ok && Array.isArray(data.items)) {
         playlist = data.items; playlistLoaded = true;
+        playlistLoadedDepth = data.depth || playlistDepth;
         logEvent('playlist-fetch: ok, ' + data.items.length + ' Eintraege, range=' +
-          (data.items.length ? data.items[0].time + '–' + data.items[data.items.length-1].time : 'leer'), 'ok');
+          (data.items.length ? data.items[0].time + '–' + data.items[data.items.length-1].time : 'leer') +
+          ', depth=' + playlistLoadedDepth, 'ok');
       } else {
         playlistLoaded = true;
         logEvent('playlist-fetch: error ' + (data.error||'unknown'), 'err');
