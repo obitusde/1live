@@ -596,6 +596,14 @@ function updateUI() {
   for (let i = playlist.length - 1; i >= 0; i--) {
     if (playlist[i].epochMin <= epochMin) { found = playlist[i]; break; }
   }
+  // Plausibilitaets-Check: liegt der gefundene Eintrag unrealistisch weit
+  // zurueck (z.B. weil dazwischen ein nicht aufgeschluesselter Nachtblock
+  // liegt), ist er nicht mehr verlaesslich -> lieber "-" als einen
+  // stundenalten Titel weiter anzeigen.
+  const MAX_PLAUSIBLE_GAP_MIN = 20;
+  if (found && (epochMin - found.epochMin) > MAX_PLAUSIBLE_GAP_MIN) {
+    found = null;
+  }
   const npStr = found ? (found.artist ? found.artist + ' — ' + found.title : found.title) : '—';
   showNp(npStr, !found);
   btnSpotify.style.display = (found && isPlaying) ? 'flex' : 'none';
