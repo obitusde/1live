@@ -52,12 +52,24 @@ body {
 }
 .btn-icon:active { color:#fff; border-color:#555; }
 .now-playing {
-  flex-shrink:0; padding:8px 14px; border-bottom:2px solid #222;
-  min-height:38px; display:flex; align-items:center; gap:8px;
+  flex-shrink:0; padding:10px 14px; border-bottom:2px solid #222;
+  min-height:46px; display:flex; align-items:center; gap:10px;
 }
-.np-label { font-size:11px; font-weight:700; color:#e8001c; letter-spacing:1px; text-transform:uppercase; flex-shrink:0; }
-.np-text  { font-size:13px; font-weight:600; color:#ccc; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.np-label { font-size:12px; font-weight:700; color:#e8001c; letter-spacing:1px; text-transform:uppercase; flex-shrink:0; }
+.np-text-wrap { flex:1; min-width:0; overflow:hidden; white-space:nowrap; position:relative; }
+.np-text  { font-size:21px; font-weight:700; color:#ccc; white-space:nowrap; display:inline-block; will-change:transform; }
 .np-text.dim { color:#555; font-style:italic; }
+.np-text.scrolling {
+  animation-name: np-marquee;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+  animation-duration: var(--marquee-duration, 10s);
+}
+@keyframes np-marquee {
+  0%, 8%   { transform: translateX(0); }
+  46%, 54% { transform: translateX(var(--marquee-distance, 0px)); }
+  92%, 100% { transform: translateX(0); }
+}
 .progress-strip { flex-shrink:0; padding:8px 14px 10px; border-bottom:2px solid #222; }
 .prog-labels { display:flex; justify-content:space-between; font-size:14px; font-weight:700; color:#fff; margin-bottom:6px; }
 .prog-track { width:100%; height:8px; background:#333; border-radius:4px; cursor:pointer; }
@@ -176,7 +188,7 @@ audio { display:none; }
     <div class="logo-tap" id="btnStation" title="Sender wechseln">
       <img id="logoImg" src="" alt="1LIVE" style="height:36px;display:block;">
     </div>
-    <div class="version">v9.8</div>
+    <div class="version">v9.9</div>
   </div>
   <div class="wall-clock" id="wallClock"></div>
   <div class="topbar-right">
@@ -188,7 +200,9 @@ audio { display:none; }
 
 <div class="now-playing">
   <span class="np-label" id="npLabel">♫</span>
-  <span class="np-text dim" id="npText">—</span>
+  <div class="np-text-wrap" id="npTextWrap">
+    <span class="np-text dim" id="npText">—</span>
+  </div>
 </div>
 
 <div class="progress-strip">
@@ -254,7 +268,7 @@ audio { display:none; }
 <!-- Debug Overlay -->
 <div class="debug-overlay" id="debugOverlay">
   <div class="debug-header">
-    <span class="debug-title" id="debugTitle">🐛 DEBUG LOG v9.8</span>
+    <span class="debug-title" id="debugTitle">🐛 DEBUG LOG v9.9</span>
     <button class="debug-close" id="debugClose">✕</button>
   </div>
   <div class="debug-log" id="debugLog"></div>
@@ -315,7 +329,7 @@ const HLS_CONFIG = {
   enableWorker:    true,
   lowLatencyMode:  false,
   backBufferLength: 30,    // reduziert bufferFullError
-  maxBufferLength:  30,
+  maxBufferLength:  600,   // 10 Minuten Vorwaerts-Puffer (Funkloch-Robustheit beim Timeshift-Hoeren)
   maxMaxBufferLength: 7200
 };
 
@@ -342,6 +356,7 @@ const lblClock       = document.getElementById('lblClock');
 const wallClock      = document.getElementById('wallClock');
 const progTrack      = document.getElementById('progTrack');
 const npText         = document.getElementById('npText');
+const npTextWrap     = document.getElementById('npTextWrap');
 const npLabel        = document.getElementById('npLabel');
 const logoImg        = document.getElementById('logoImg');
 const stationOverlay = document.getElementById('stationOverlay');
@@ -422,7 +437,7 @@ function applyStation(key) {
   checkNjoy.textContent     = key === 'njoy'   ? '✓' : '';
   checkBr1.textContent      = key === 'br1'    ? '✓' : '';
   document.title            = s.label + ' Player';
-  debugTitle.textContent    = '🐛 DEBUG LOG v9.8 [' + key + ']';
+  debugTitle.textContent    = '🐛 DEBUG LOG v9.9 [' + key + ']';
 }
 
 btnStation.addEventListener('click', () => stationOverlay.classList.add('open'));
@@ -528,11 +543,36 @@ function fmtDelta(s) {
 // ║  UI UPDATE                                                  ║
 // ╚══════════════════════════════════════════════════════════════╗
 function showNp(text, dim) {
+  const changed = npText.textContent !== text;
   npText.textContent = text;
   npText.className = 'np-text' + (dim ? ' dim' : '');
+  if (changed) {
+    updateMediaSession();
+    updateMarquee();
+  }
 }
 
+function updateMarquee() {
+  // Erst nach dem Reflow messen (naechster Frame), sonst ist scrollWidth
+  // noch der alte Wert von vorher.
+  requestAnimationFrame(() => {
+    npText.classList.remove('scrolling');
+    npText.style.transform = '';
+    const overflow = npText.scrollWidth - npTextWrap.clientWidth;
+    if (overflow > 4) {
+      const distance = -(overflow + 16); // kleine Sicherheitsmarge am Ende
+      const duration = Math.max(6, Math.abs(distance) / 35); // ~35px/s, min. 6s Zyklus
+      npText.style.setProperty('--marquee-distance', distance + 'px');
+      npText.style.setProperty('--marquee-duration', duration.toFixed(1) + 's');
+      npText.classList.add('scrolling');
+    }
+  });
+}
+window.addEventListener('resize', updateMarquee);
+
 function updateUI() {
+  updatePositionState();
+
   const streamT   = getStreamTime();
   const behindMs  = Date.now() - streamT.getTime();
   const behindSec = Math.max(0, behindMs / 1000);
@@ -692,6 +732,7 @@ progTrack.addEventListener('click', e => {
   const r = progTrack.getBoundingClientRect();
   const pct = Math.max(0, Math.min(1, (e.clientX - r.left) / r.width));
   audio.currentTime = Math.max(0, Math.min(edge, edge - 7500 * (1 - pct)));
+  if (hls) hls.startLoad(audio.currentTime);
 });
 
 function seek(delta) {
@@ -699,6 +740,7 @@ function seek(delta) {
   const edge = getLiveEdge(); if (!edge) return;
   const before = audio.currentTime;
   audio.currentTime = Math.max(0, Math.min(edge, audio.currentTime + delta));
+  if (hls) hls.startLoad(audio.currentTime); // sauberer Neustart des Ladevorgangs ab neuer Position
   logEvent('seek: '+(delta>0?'+':'')+delta+'s, ct='+before.toFixed(0)+'→'+audio.currentTime.toFixed(0));
   statusMsg.textContent = delta < 0 ? '− '+fmtDelta(delta)+' zurück' : '+ '+fmtDelta(delta)+' vor';
 }
@@ -730,6 +772,7 @@ function seekToSong(direction) {
   newCt = Math.max(0, newCt);
   if (edge) newCt = Math.min(edge, newCt);
   audio.currentTime = newCt;
+  if (hls) hls.startLoad(newCt);
 
   const label = target.artist ? target.artist + ' — ' + target.title : target.title;
   statusMsg.textContent = (direction > 0 ? '⏭ ' : '⏮ ') + label;
@@ -769,7 +812,7 @@ btnPlay.addEventListener('click', () => {
 btnLive.addEventListener('click', () => {
   if (!dvrAvailable) return;
   const edge = getLiveEdge();
-  if (edge) audio.currentTime = edge - 1;
+  if (edge) { audio.currentTime = edge - 1; if (hls) hls.startLoad(edge - 1); }
   setAnchor();
   statusMsg.textContent = 'Zurück zur Live-Kante.';
   logEvent('jump-to-live', 'ok');
@@ -790,10 +833,23 @@ btnReload.addEventListener('click', () => {
 // ╔══════════════════════════════════════════════════════════════╗
 // ║  AUDIO EVENTS                                               ║
 // ╚══════════════════════════════════════════════════════════════╗
+const DEFAULT_REWIND_SEC = 7200; // 2 Stunden
+
+function applyDefaultRewind() {
+  const edge = getLiveEdge();
+  if (edge === null) return;
+  const target = Math.max(0, edge - DEFAULT_REWIND_SEC);
+  if (edge - target > 5) { // nur wenn ueberhaupt ein spuerbarer Unterschied
+    audio.currentTime = target;
+    if (hls) hls.startLoad(target);
+    logEvent('default-rewind: -' + Math.round(edge - target) + 's ab Live-Kante (gecapped auf Puffer)', 'ok');
+  }
+}
+
 audio.addEventListener('playing', () => {
   isPlaying = true; btnPlay.textContent = '⏸';
   statusMsg.textContent = usingFallback ? 'Spielt (MP3).' : 'Spielt.';
-  if (dvrAvailable && anchorCT === null) setAnchor();
+  if (dvrAvailable && anchorCT === null) { setAnchor(); applyDefaultRewind(); }
   sizePlay();
   updateMediaSession();
   logEvent('audio: playing, ct=' + audio.currentTime.toFixed(1), 'ok');
@@ -858,13 +914,44 @@ function initMP3() {
 // ╔══════════════════════════════════════════════════════════════╗
 // ║  MEDIA SESSION API (Bluetooth-Fernbedienung)                ║
 // ╚══════════════════════════════════════════════════════════════╗
+// Tatsaechliche Pixel-Groessen der eingebetteten Logos (fuer MediaImage.sizes,
+// manche Systeme waehlen darauf basierend das am besten passende Bild).
+const LOGO_SIZES = {
+  '1live':  '174x80',
+  'diggi':  '208x128',
+  'wdr2sw': '289x128',
+  'njoy':   '130x128',
+  'br1':    '137x128'
+};
+
 function updateMediaSession() {
   if (!('mediaSession' in navigator)) return;
+  const logo = LOGOS[currentStation];
   navigator.mediaSession.metadata = new MediaMetadata({
     title:  npText.textContent || STATIONS[currentStation].label,
     artist: STATIONS[currentStation].label,
-    album:  'Radio'
+    album:  'Radio',
+    artwork: logo ? [{ src: logo, sizes: LOGO_SIZES[currentStation] || '128x128', type: 'image/png' }] : []
   });
+}
+
+function updatePositionState() {
+  if (!('mediaSession' in navigator) || !('setPositionState' in navigator.mediaSession)) return;
+  const dur = audio.duration;
+  const pos = audio.currentTime;
+  // Nur gueltige, endliche Werte durchreichen (Live-Stream ohne DVR kann
+  // Infinity/NaN liefern -> setPositionState wirft dann eine Exception).
+  if (!isFinite(dur) || dur <= 0 || !isFinite(pos) || pos < 0 || pos > dur) return;
+  try {
+    navigator.mediaSession.setPositionState({
+      duration: dur,
+      playbackRate: audio.playbackRate || 1,
+      position: pos
+    });
+  } catch (e) {
+    // absichtlich still - manche Browser sind zickig bei schnellen Seeks,
+    // das ist kein kritischer Fehler
+  }
 }
 
 function setupMediaSession() {
@@ -980,7 +1067,7 @@ Object.entries(STATION_BUTTON_MAP).forEach(([btnId, key]) => {
   if (img && LOGOS[key]) img.src = LOGOS[key];
 });
 
-logEvent('player init v9.8 [' + currentStation + ']');
+logEvent('player init v9.9 [' + currentStation + ']');
 applyStation(currentStation);
 setupMediaSession();
 initHLS();
