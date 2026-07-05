@@ -38,11 +38,6 @@ body {
   font-size:17px; font-weight:900; color:#fff;
   letter-spacing:1px; font-variant-numeric: tabular-nums;
 }
-.live-badge { display:flex; align-items:center; gap:6px; font-size:14px; font-weight:800; letter-spacing:2px; color:#00e676; }
-.live-badge.behind { color:#555; }
-.live-dot { width:10px; height:10px; border-radius:50%; background:#00e676; animation:blink 1.4s ease-in-out infinite; }
-.live-badge.behind .live-dot { background:#555; animation:none; }
-@keyframes blink { 0%,100%{opacity:1;transform:scale(1);} 50%{opacity:.3;transform:scale(1.4);} }
 .btn-icon {
   background:none; border:1.5px solid #333; border-radius:8px; color:#666;
   font-size:16px; cursor:pointer; width:34px; height:34px;
@@ -109,6 +104,16 @@ body {
   touch-action:manipulation; transition:transform .1s;
 }
 .btn-spotify:active { transform:scale(0.92); filter:brightness(0.85); }
+.btn-musiconly {
+  display:none; border:2px solid #444; cursor:pointer; border-radius:14px;
+  background:#111; color:#888; font-family:inherit;
+  font-size:clamp(13px,3.8vw,17px); font-weight:800; letter-spacing:.5px;
+  width:100%; padding:10px 0; align-items:center; justify-content:center; gap:8px;
+  flex-shrink:0; -webkit-tap-highlight-color:transparent; user-select:none;
+  touch-action:manipulation; transition:transform .1s, background .15s, color .15s, border-color .15s;
+}
+.btn-musiconly.active { background:#2a1e00; color:#ffb700; border-color:#ffb700; }
+.btn-musiconly:active { transform:scale(0.92); }
 .bottom { flex-shrink:0; border-top:2px solid #222; padding:8px 14px 10px; }
 .status { font-size:13px; color:#888; text-align:center; min-height:18px; font-weight:600; }
 .status.err { color:#ff6b6b; }
@@ -182,11 +187,11 @@ audio { display:none; }
     <div class="logo-tap" id="btnStation" title="Sender wechseln">
       <img id="logoImg" src="" alt="1LIVE" style="height:36px;display:block;">
     </div>
-    <div class="version">v9.9</div>
+    <div class="version">v10.0</div>
   </div>
   <div class="wall-clock" id="wallClock"></div>
   <div class="topbar-right">
-    <div class="live-badge" id="liveBadge"><div class="live-dot"></div>LIVE</div>
+    <button class="btn-icon" id="btnEnd" title="Beenden">⏻</button>
     <button class="btn-icon" id="btnDebug" title="Debug-Log">🐛</button>
     <button class="btn-icon" id="btnReload" title="Seite neu laden">↺</button>
   </div>
@@ -218,6 +223,7 @@ audio { display:none; }
   <div class="col-mid" id="colMid">
     <button class="btn-play" id="btnPlay">▶</button>
     <button class="btn-live" id="btnLive">● LIVE</button>
+    <button class="btn-musiconly" id="btnMusicOnly">🎵 Nur Musik</button>
     <button class="btn-spotify" id="btnSpotify">♫ Spotify</button>
   </div>
   <div class="col">
@@ -240,9 +246,13 @@ audio { display:none; }
     <img src="" alt="1LIVE" style="height:32px;display:block;">
     <div id="check1live" style="margin-left:auto;font-size:22px;color:#e8001c;">✓</div>
   </button>
-  <button class="station-btn station-btn-diggi" id="switchToDiggi">
-    <img src="" alt="1LIVE DIGGI" style="height:32px;display:block;">
-    <div id="checkDiggi" style="margin-left:auto;font-size:22px;color:#cc00aa;"></div>
+  <button class="station-btn station-btn-br3" id="switchToBr3">
+    <img src="" alt="BAYERN 3" style="height:32px;display:block;">
+    <div id="checkBr3" style="margin-left:auto;font-size:22px;color:#E2001A;"></div>
+  </button>
+  <button class="station-btn station-btn-br1" id="switchToBr1">
+    <img src="" alt="BAYERN 1" style="height:32px;display:block;">
+    <div id="checkBr1" style="margin-left:auto;font-size:22px;color:#4498CB;"></div>
   </button>
   <button class="station-btn station-btn-wdr2sw" id="switchToWdr2sw">
     <img src="" alt="WDR2" style="height:32px;display:block;">
@@ -252,13 +262,9 @@ audio { display:none; }
     <img src="" alt="N-JOY" style="height:32px;display:block;">
     <div id="checkNjoy" style="margin-left:auto;font-size:22px;color:#94c11f;"></div>
   </button>
-  <button class="station-btn station-btn-br1" id="switchToBr1">
-    <img src="" alt="BAYERN 1" style="height:32px;display:block;">
-    <div id="checkBr1" style="margin-left:auto;font-size:22px;color:#4498CB;"></div>
-  </button>
-  <button class="station-btn station-btn-br3" id="switchToBr3">
-    <img src="" alt="BAYERN 3" style="height:32px;display:block;">
-    <div id="checkBr3" style="margin-left:auto;font-size:22px;color:#E2001A;"></div>
+  <button class="station-btn station-btn-diggi" id="switchToDiggi">
+    <img src="" alt="1LIVE DIGGI" style="height:32px;display:block;">
+    <div id="checkDiggi" style="margin-left:auto;font-size:22px;color:#cc00aa;"></div>
   </button>
   <button class="station-cancel" id="stationCancel">Abbrechen</button>
 </div>
@@ -266,7 +272,7 @@ audio { display:none; }
 <!-- Debug Overlay -->
 <div class="debug-overlay" id="debugOverlay">
   <div class="debug-header">
-    <span class="debug-title" id="debugTitle">🐛 DEBUG LOG v9.9</span>
+    <span class="debug-title" id="debugTitle">🐛 DEBUG LOG v10.0</span>
     <button class="debug-close" id="debugClose">✕</button>
   </div>
   <div class="debug-log" id="debugLog"></div>
@@ -350,11 +356,12 @@ const audio          = document.getElementById('audio');
 const btnPlay        = document.getElementById('btnPlay');
 const btnLive        = document.getElementById('btnLive');
 const btnSpotify     = document.getElementById('btnSpotify');
+const btnMusicOnly   = document.getElementById('btnMusicOnly');
 const btnReload      = document.getElementById('btnReload');
+const btnEnd         = document.getElementById('btnEnd');
 const btnDebug       = document.getElementById('btnDebug');
 const btnStation     = document.getElementById('btnStation');
 const statusMsg      = document.getElementById('statusMsg');
-const liveBadge      = document.getElementById('liveBadge');
 const progFill       = document.getElementById('progFill');
 const lblBehind      = document.getElementById('lblBehind');
 const lblClock       = document.getElementById('lblClock');
@@ -387,6 +394,7 @@ const debugTitle     = document.getElementById('debugTitle');
 // ║  STATE                                                      ║
 // ╚══════════════════════════════════════════════════════════════╝
 let currentStation   = '1live';
+let musicOnlyMode    = false; // nur bei BR1/BR3 nutzbar, wird bei Senderwechsel zurueckgesetzt
 let hls              = null;
 let isPlaying        = false;
 let dvrAvailable     = false;
@@ -425,7 +433,7 @@ function updateWallClock() {
     timeZone: TIMEZONE, hour: '2-digit', minute: '2-digit', second: '2-digit'
   });
 }
-setInterval(updateWallClock, 1000);
+const wallClockTimer = setInterval(updateWallClock, 1000);
 updateWallClock();
 
 // ╔══════════════════════════════════════════════════════════════╗
@@ -443,8 +451,9 @@ function applyStation(key) {
   checkNjoy.textContent     = key === 'njoy'   ? '✓' : '';
   checkBr1.textContent      = key === 'br1'    ? '✓' : '';
   checkBr3.textContent      = key === 'br3'    ? '✓' : '';
+  btnMusicOnly.style.display = (key === 'br1' || key === 'br3') ? 'flex' : 'none';
   document.title            = s.label + ' Player';
-  debugTitle.textContent    = '🐛 DEBUG LOG v9.9 [' + key + ']';
+  debugTitle.textContent    = '🐛 DEBUG LOG v10.0 [' + key + ']';
 }
 
 btnStation.addEventListener('click', () => stationOverlay.classList.add('open'));
@@ -465,6 +474,8 @@ function switchStation(key) {
   anchorCT = null; anchorWall = null;
   playlist = []; playlistLoaded = false; playlistLoading = false;
   playlistDepth = 3; playlistLoadedDepth = 0;
+  musicOnlyMode = false;
+  btnMusicOnly.classList.remove('active');
   streamtitleLast = '';
   showNp('—', true);
   btnSpotify.style.display = 'none';
@@ -472,7 +483,6 @@ function switchStation(key) {
   progFill.style.width     = '100%';
   lblBehind.textContent    = '';
   lblClock.textContent     = '– LIVE –';
-  liveBadge.classList.remove('behind');
   statusMsg.textContent    = 'Tippe ▶ zum Starten';
   statusMsg.className      = 'status';
   document.querySelectorAll('[data-sec], [data-song]').forEach(b => { b.disabled=false; b.style.opacity='1'; });
@@ -557,8 +567,45 @@ function showNp(text, dim) {
   if (changed) updateMediaSession();
 }
 
+// Prueft ob die aktuelle Hoerposition in einem uebersprungenen Block liegt
+// (Verkehr/Wetter immer, Moderation/Nachrichten zusaetzlich im Nur-Musik-
+// Modus) und springt automatisch zum naechsten bekannten Eintrag. Laeuft
+// jede Sekunde mit, damit man nie mitten in so einem Block landet -
+// unabhaengig davon, ob per Skip-Button oder einfach durch Weiterhoeren.
+function checkAutoSkip() {
+  if (!isBrStation() || !dvrAvailable || anchorCT === null || !isPlaying) return;
+  if (!playlist.length) return;
+
+  const streamT = getStreamTime();
+  const curMin  = streamT.getTime() / 60000;
+
+  let idx = -1;
+  for (let i = playlist.length - 1; i >= 0; i--) {
+    if (playlist[i].epochMin <= curMin) { idx = i; break; }
+  }
+  if (idx === -1) return;
+
+  const current = playlist[idx];
+  if (!isSkippableClass(current.class)) return;
+  if (idx + 1 >= playlist.length) return; // naechster Eintrag noch nicht bekannt
+
+  const next = playlist[idx + 1];
+  const targetMs = next.epochMin * 60000;
+  const nowMs = streamT.getTime();
+  const deltaSec = (targetMs - nowMs) / 1000;
+  if (deltaSec <= 0.5) return; // schon (fast) da, keine erneute Aktion
+
+  const edge = getLiveEdge();
+  let newCt = audio.currentTime + deltaSec;
+  if (edge) newCt = Math.min(edge, newCt);
+  audio.currentTime = newCt;
+  if (hls) hls.startLoad(newCt);
+  logEvent('auto-skip: ' + current.class + ' ("' + current.title + '") uebersprungen -> ' + next.time, 'ok');
+}
+
 function updateUI() {
   updatePositionState();
+  checkAutoSkip();
 
   const streamT   = getStreamTime();
   const behindMs  = Date.now() - streamT.getTime();
@@ -570,12 +617,10 @@ function updateUI() {
     progFill.style.width  = Math.max(0, Math.min(100, (1 - behindSec/7500)*100)) + '%';
     lblBehind.textContent = fmtBehind(behindSec);
     btnLive.style.display = 'flex';
-    liveBadge.classList.add('behind');
   } else {
     progFill.style.width  = '100%';
     lblBehind.textContent = '';
     btnLive.style.display = 'none';
-    liveBadge.classList.remove('behind');
   }
 
   if (!isPlaying) return;
@@ -621,7 +666,7 @@ function updateUI() {
 
   let found = null;
   for (let i = playlist.length - 1; i >= 0; i--) {
-    if (playlist[i].epochMin <= epochMin) { found = playlist[i]; break; }
+    if (playlist[i].epochMin <= epochMin && !isSkippableClass(playlist[i].class)) { found = playlist[i]; break; }
   }
   // Plausibilitaets-Check: liegt der gefundene Eintrag unrealistisch weit
   // zurueck (z.B. weil dazwischen ein nicht aufgeschluesselter Nachtblock
@@ -637,7 +682,7 @@ function updateUI() {
 }
 
 audio.addEventListener('timeupdate', updateUI);
-setInterval(updateUI, 1000);
+const updateUiTimer = setInterval(updateUI, 1000);
 
 // ╔══════════════════════════════════════════════════════════════╗
 // ║  PLAYLIST                                                   ║
@@ -739,6 +784,19 @@ document.querySelectorAll('[data-sec]').forEach(b => b.addEventListener('click',
 
 // Song-Skip: springt zum naechsten/vorherigen bekannten Playlist-Eintrag
 // (nur im Replay sinnvoll, nicht an der Live-Kante).
+function isBrStation() {
+  return currentStation === 'br1' || currentStation === 'br3';
+}
+
+// Verkehr/Wetter werden bei BR1/BR3 IMMER uebersprungen (nie gewuenscht).
+// Im Nur-Musik-Modus kommen Moderation/Nachrichten (Live/Info) zusaetzlich dazu.
+function isSkippableClass(cls) {
+  if (!isBrStation()) return false;
+  if (cls === 'Traffic' || cls === 'Weather') return true;
+  if (musicOnlyMode && (cls === 'Live' || cls === 'Info')) return true;
+  return false;
+}
+
 function seekToSong(direction) {
   if (!dvrAvailable || anchorCT === null) { statusMsg.textContent = 'Kein DVR-Puffer.'; return; }
   if (!playlistLoaded || !playlist.length) { statusMsg.textContent = 'Playlist noch nicht geladen.'; return; }
@@ -748,11 +806,11 @@ function seekToSong(direction) {
   let target = null;
 
   if (direction > 0) {
-    target = playlist.find(p => p.epochMin * 60000 > nowMs + 1000);
+    target = playlist.find(p => p.epochMin * 60000 > nowMs + 1000 && !isSkippableClass(p.class));
     if (!target) { statusMsg.textContent = 'Kein weiterer Song bekannt.'; return; }
   } else {
     for (let i = playlist.length - 1; i >= 0; i--) {
-      if (playlist[i].epochMin * 60000 < nowMs - 30000) { target = playlist[i]; break; }
+      if (playlist[i].epochMin * 60000 < nowMs - 30000 && !isSkippableClass(playlist[i].class)) { target = playlist[i]; break; }
     }
     if (!target) { statusMsg.textContent = 'Kein früherer Song bekannt.'; return; }
   }
@@ -776,10 +834,13 @@ document.querySelectorAll('[data-song]').forEach(b => b.addEventListener('click'
 // ╚══════════════════════════════════════════════════════════════╗
 function sizePlay() {
   const mid = document.getElementById('colMid');
-  const liveH    = btnLive.offsetHeight    || 0;
-  const spotifyH = btnSpotify.offsetHeight || 0;
+  const liveH       = btnLive.offsetHeight       || 0;
+  const musicOnlyH  = btnMusicOnly.offsetHeight  || 0;
+  const spotifyH    = btnSpotify.offsetHeight    || 0;
   const gap = 10;
-  const usedH = (liveH > 0 ? liveH + gap : 0) + (spotifyH > 0 ? spotifyH + gap : 0);
+  const usedH = (liveH > 0 ? liveH + gap : 0) +
+                (musicOnlyH > 0 ? musicOnlyH + gap : 0) +
+                (spotifyH > 0 ? spotifyH + gap : 0);
   const size = Math.min(mid.clientHeight - usedH, mid.clientWidth, 200);
   btnPlay.style.width = btnPlay.style.height = size + 'px';
   btnPlay.style.fontSize = Math.round(size * 0.4) + 'px';
@@ -807,6 +868,15 @@ btnLive.addEventListener('click', () => {
   logEvent('jump-to-live', 'ok');
 });
 
+btnMusicOnly.addEventListener('click', () => {
+  if (!isBrStation()) return;
+  musicOnlyMode = !musicOnlyMode;
+  btnMusicOnly.classList.toggle('active', musicOnlyMode);
+  logEvent('music-only: ' + (musicOnlyMode ? 'an' : 'aus'), 'ok');
+  statusMsg.textContent = musicOnlyMode ? 'Nur Musik: an' : 'Nur Musik: aus';
+  if (musicOnlyMode) checkAutoSkip(); // sofort pruefen, falls gerade Nicht-Musik laeuft
+});
+
 btnSpotify.addEventListener('click', () => {
   const text = npText.textContent;
   if (!text || text === '—') return;
@@ -817,6 +887,34 @@ btnSpotify.addEventListener('click', () => {
 btnReload.addEventListener('click', () => {
   logEvent('manual-reload');
   setTimeout(() => location.reload(), 100);
+});
+
+btnEnd.addEventListener('click', () => {
+  logEvent('app-end: Beenden gedrueckt');
+
+  // Wiedergabe stoppen
+  audio.pause();
+  audio.src = '';
+  if (hls) { hls.destroy(); hls = null; }
+
+  // Alle wiederkehrenden Timer stoppen
+  stopPlaylistTimer();
+  stopStreamtitlePolling();
+  clearInterval(wallClockTimer);
+  clearInterval(updateUiTimer);
+
+  // Media-Session-Kontrolle abgeben, damit Auto/Bluetooth nichts mehr anzeigt
+  if ('mediaSession' in navigator) {
+    navigator.mediaSession.metadata = null;
+    navigator.mediaSession.playbackState = 'none';
+  }
+
+  // Seite durch einfachen Endzustand ersetzen, keine Skripte laufen mehr
+  document.body.innerHTML =
+    '<div style="display:flex;align-items:center;justify-content:center;' +
+    'height:100dvh;width:100%;background:#000;color:#fff;' +
+    'font-family:-apple-system,BlinkMacSystemFont,Roboto,sans-serif;' +
+    'font-size:28px;font-weight:800;">Beendet</div>';
 });
 
 // ╔══════════════════════════════════════════════════════════════╗
@@ -1062,7 +1160,7 @@ Object.entries(STATION_BUTTON_MAP).forEach(([btnId, key]) => {
   if (img && LOGOS[key]) img.src = LOGOS[key];
 });
 
-logEvent('player init v9.9 [' + currentStation + ']');
+logEvent('player init v10.0 [' + currentStation + ']');
 applyStation(currentStation);
 setupMediaSession();
 initHLS();
