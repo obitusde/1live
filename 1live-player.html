@@ -363,6 +363,14 @@ const LOGOS = {
   'srf4news': 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="220" height="90"><rect width="220" height="90" rx="16" fill="#E8590C"/><text x="110" y="58" font-family="Arial, Helvetica, sans-serif" font-size="28" font-weight="900" fill="#fff" text-anchor="middle">SRF 4</text></svg>')
 };
 
+// Eigene, quadratische Artwork-Variante fuers Bluetooth/Autoradio-Cover
+// (LOGOS['1live'] ist ein breites Wordmark -> wird dort meist quadratisch
+// zugeschnitten angezeigt und dann fast unkenntlich). Faellt zurueck auf
+// LOGOS[key], wenn kein eigener Eintrag existiert.
+const ARTWORK_LOGOS = {
+  '1live': 'data:image/png;base64,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'
+};
+
 const HLS_CONFIG = {
   enableWorker:    true,
   lowLatencyMode:  false,
@@ -955,6 +963,7 @@ btnEnd.addEventListener('click', () => {
   // Wiedergabe stoppen
   shouldBePlaying = false;
   resetReconnectState();
+  releaseWakeLock();
   audio.pause();
   audio.src = '';
   if (hls) { hls.destroy(); hls = null; }
@@ -1058,6 +1067,34 @@ setInterval(() => {
   watchdogLastCT = audio.currentTime;
 }, 10000);
 
+// ╔══════════════════════════════════════════════════════════════╗
+// ║  WAKE LOCK (Screen bleibt an waehrend der Wiedergabe)        ║
+// ║  Nur waehrend die Seite sichtbar ist im Vordergrund moeglich -║
+// ║  wird vom Betriebssystem automatisch freigegeben, sobald man ║
+// ║  wegwechselt/sperrt, und dann bei Rueckkehr neu angefordert. ║
+// ║  Kann ein bereits gesperrtes Display nicht entsperren.       ║
+// ╚══════════════════════════════════════════════════════════════╝
+let wakeLock = null;
+
+async function acquireWakeLock() {
+  if (!('wakeLock' in navigator) || wakeLock) return;
+  try {
+    wakeLock = await navigator.wakeLock.request('screen');
+    wakeLock.addEventListener('release', () => { wakeLock = null; });
+    logEvent('wakelock: aktiv', 'ok');
+  } catch (err) {
+    logEvent('wakelock-error: ' + err.message, 'err');
+  }
+}
+
+function releaseWakeLock() {
+  if (wakeLock) { wakeLock.release().catch(() => {}); wakeLock = null; }
+}
+
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && isPlaying) acquireWakeLock();
+});
+
 audio.addEventListener('playing', () => {
   isPlaying = true; btnPlay.textContent = '⏸';
   resetReconnectState();
@@ -1068,12 +1105,14 @@ audio.addEventListener('playing', () => {
   if (!playlistTimer) startPlaylistTimer();
   sizePlay();
   updateMediaSession();
+  acquireWakeLock();
   logEvent('audio: playing, ct=' + audio.currentTime.toFixed(1), 'ok');
 });
 audio.addEventListener('pause', () => {
   isPlaying = false; btnPlay.textContent = '▶';
   stopStreamtitlePolling();
   stopPlaylistTimer();
+  releaseWakeLock();
   logEvent('audio: pause, Hintergrund-Timer gestoppt');
 });
 audio.addEventListener('waiting', () => { statusMsg.textContent='Puffert…'; logEvent('audio: waiting'); });
@@ -1140,7 +1179,7 @@ function initMP3() {
 // Tatsaechliche Pixel-Groessen der eingebetteten Logos (fuer MediaImage.sizes,
 // manche Systeme waehlen darauf basierend das am besten passende Bild).
 const LOGO_SIZES = {
-  '1live':  '174x80',
+  '1live':  '447x447', // passt zu ARTWORK_LOGOS['1live'], nicht zum breiten Topbar-Wordmark
   'diggi':  '208x128',
   'wdr2sw': '289x128',
   'njoy':   '130x128',
@@ -1150,14 +1189,19 @@ const LOGO_SIZES = {
   'srf4news': '220x90'
 };
 
+function mimeFromDataUri(uri) {
+  const m = /^data:([^;,]+)/.exec(uri);
+  return m ? m[1] : 'image/png';
+}
+
 function updateMediaSession() {
   if (!('mediaSession' in navigator)) return;
-  const logo = LOGOS[currentStation];
+  const logo = ARTWORK_LOGOS[currentStation] || LOGOS[currentStation];
   navigator.mediaSession.metadata = new MediaMetadata({
     title:  npText.textContent || STATIONS[currentStation].label,
     artist: STATIONS[currentStation].label,
     album:  'Radio',
-    artwork: logo ? [{ src: logo, sizes: LOGO_SIZES[currentStation] || '128x128', type: 'image/png' }] : []
+    artwork: logo ? [{ src: logo, sizes: LOGO_SIZES[currentStation] || '128x128', type: mimeFromDataUri(logo) }] : []
   });
 }
 
@@ -1186,6 +1230,26 @@ function setupMediaSession() {
   navigator.mediaSession.setActionHandler('pause',         () => { audio.pause(); });
   navigator.mediaSession.setActionHandler('previoustrack', () => { seekToSong(-1); });
   navigator.mediaSession.setActionHandler('nexttrack',     () => { seekToSong(1); });
+
+  // +/-10s ueber die Skip-Buttons/den Scrubber am Autoradio (Bluetooth/AVRCP).
+  // Bewusst zusaetzlich zu previoustrack/nexttrack: Songsprung ist bei 1LIVE
+  // nicht immer punktgenau, 10s-Schritte sind die verlaessliche Alternative.
+  try {
+    navigator.mediaSession.setActionHandler('seekbackward', (d) => seek(-(d && d.seekOffset ? d.seekOffset : 10)));
+    navigator.mediaSession.setActionHandler('seekforward',  (d) => seek(d && d.seekOffset ? d.seekOffset : 10));
+    navigator.mediaSession.setActionHandler('seekto', (d) => {
+      if (!dvrAvailable || d.seekTime == null) return;
+      const edge = getLiveEdge();
+      const target = Math.max(0, edge ? Math.min(edge, d.seekTime) : d.seekTime);
+      if (d.fastSeek && 'fastSeek' in audio) audio.fastSeek(target); else audio.currentTime = target;
+      if (hls) hls.startLoad(target);
+    });
+  } catch (e) {
+    // seekbackward/seekforward/seekto sind nicht ueberall implementiert
+    // (aeltere Browser) - dann bleibt es bei previoustrack/nexttrack.
+    logEvent('media-session: seek-handler nicht verfuegbar', 'err');
+  }
+
   logEvent('media-session: registered', 'ok');
 }
 
